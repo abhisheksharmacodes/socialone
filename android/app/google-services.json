@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "838496966554",
+    "project_id": "social-one-986a3",
+    "storage_bucket": "social-one-986a3.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:838496966554:android:c655e77179850c7f9a0c23",
+        "android_client_info": {
+          "package_name": "com.geekysharma.social_one"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "838496966554-2mkikse2bdeg5jdid99i954kkvj16j98.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC072Yb3Vw8KEOe0HK6sswsA78xFSlV5X4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "838496966554-2mkikse2bdeg5jdid99i954kkvj16j98.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
