@@ -12,7 +12,6 @@ import 'package:icofont_flutter/icofont_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'ad_helper.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 void main() => runApp(MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -136,7 +135,8 @@ class _MyAppState extends State<MyApp> {
             margin: EdgeInsets.only(left: 14, right: 14),
             child: GridView.extent(
               primary: false,
-              padding: const EdgeInsets.all(6),
+              padding:
+                  const EdgeInsets.only(top: 20, bottom: 20, right: 6, left: 6),
               crossAxisSpacing: 20,
               mainAxisSpacing: 20,
               childAspectRatio: (140 / 200),
@@ -602,7 +602,8 @@ class _MyAppState extends State<MyApp> {
                       iconSize: 30,
                       icon: Icon(Icons.close),
                       onPressed: () {
-                        webctrl.loadUrl("https://www.google.com");
+                        webctrl.loadUrl(
+                            "https://idkzmaw2wapnazirmsf5ma-on.drv.tw/idle.html");
                         openedByClosed = true;
                         setState(() {
                           _loading = false;
@@ -651,79 +652,7 @@ class _MyAppState extends State<MyApp> {
                   opacity: !bg ? 1.0 : 0.0,
                   child: Container(height: h, width: w, color: Colors.white),
                 ),
-                IgnorePointer(
-                  ignoring: !socialMedia,
-                  child: AnimatedOpacity(
-                    duration: Duration(milliseconds: duration),
-                    opacity: socialMedia ? 1.0 : 0.0,
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Container(
-                              //padding: EdgeInsets.only(top: 10),
-                              margin: EdgeInsets.only(left: 14, right: 14),
-                              child: Expanded(
-                                child: GridView.extent(
-                                  primary: false,
-                                  padding: const EdgeInsets.all(6),
-                                  crossAxisSpacing: 20,
-                                  mainAxisSpacing: 20,
-                                  childAspectRatio: (140 / 200),
-                                  maxCrossAxisExtent: 200.0,
-                                  children: <Widget>[
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                    appCard("assets/SocialMedia/facebook.jpeg",
-                                        () {
-                                      openWebView("https://www.facebook.com");
-                                    }),
-                                  ],
-                                ),
-                              )),
-                        ),
-                        Container(
-                          height: 50,
-                          child: AdWidget(ad: _ad),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-                /* Social Media  appSection(socialMedia, [
+                /* Social Media */ appSection(socialMedia, [
                   [
                     "assets/SocialMedia/facebook.jpeg",
                     "https://www.facebook.com"
@@ -752,7 +681,7 @@ class _MyAppState extends State<MyApp> {
                     "assets/SocialMedia/pintrest.jpeg",
                     "https://in.pinterest.com"
                   ],
-                ]),*/
+                ]),
 
                 /* News: Gaming */ appSection(newsGaming, [
                   [
@@ -1335,16 +1264,6 @@ class _MyAppState extends State<MyApp> {
               ],
             )),
       ),
-      /*floatingActionButton: Align(
-          alignment: Alignment.bottomCenter,
-          child: FloatingActionButton(
-            onPressed: () {},
-            child: Text("Send"),
-            foregroundColor: Colors.white,
-            backgroundColor: Colors.orange,
-            splashColor: Colors.white60,
-          ),
-        )*/
     );
   }
 }
