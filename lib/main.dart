@@ -318,6 +318,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -336,6 +337,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -354,6 +356,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -372,6 +375,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -390,6 +394,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -408,6 +413,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -426,6 +432,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -444,6 +451,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -462,6 +470,7 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = false;
             bg = true;
+            featUrself = false;
           });
         }
         break;
@@ -480,6 +489,7 @@ class MyAppState extends State<MyApp> {
             about = true;
             feedback = false;
             bg = false;
+            featUrself = false;
           });
         }
         break;
@@ -498,9 +508,28 @@ class MyAppState extends State<MyApp> {
             about = false;
             feedback = true;
             bg = false;
+            featUrself = false;
           });
         }
         break;
+      case "Feature Yourself":
+        {
+          setState(() {
+            socialMedia = false;
+            newsGaming = false;
+            newsTech = false;
+            newsSports = false;
+            newsFinancial = false;
+            newsLocal = false;
+            newsGlobal = false;
+            music = false;
+            games = false;
+            about = false;
+            feedback = false;
+            bg = false;
+            featUrself = true;
+          });
+        }
     }
   }
 
@@ -616,11 +645,15 @@ class MyAppState extends State<MyApp> {
             focusOut();
           },
         ),
+        Divider(),
         ListTile(
-          leading: FaIcon(FontAwesomeIcons.infoCircle),
-          title: Text("About"),
+          leading: Icon(IcoFontIcons.starShape, color: Colors.orange),
+          title: Text(
+            "Feature yourself",
+            style: TextStyle(color: Colors.orange),
+          ),
           onTap: () {
-            switchCategory("about");
+            switchCategory("Feature Yourself");
             Navigator.pop(context);
             focusOut();
           },
@@ -630,6 +663,15 @@ class MyAppState extends State<MyApp> {
           title: Text("Feedback"),
           onTap: () {
             switchCategory("feedback");
+            Navigator.pop(context);
+            focusOut();
+          },
+        ),
+        ListTile(
+          leading: FaIcon(FontAwesomeIcons.infoCircle),
+          title: Text("About"),
+          onTap: () {
+            switchCategory("about");
             Navigator.pop(context);
             focusOut();
           },
@@ -726,7 +768,7 @@ class MyAppState extends State<MyApp> {
                     socialMedia,
                     [
                       [
-                        "assets/SocialMedia/facebook.jpeg",
+                        "assets/images/youtube_abhishek.jpg",
                         "https://www.facebook.com"
                       ],
                       [
@@ -1085,6 +1127,22 @@ class MyAppState extends State<MyApp> {
                     ],
                     "GamesFeatured",
                     size: 2),
+                /* Feature Yourself */ IgnorePointer(
+                    ignoring: !featUrself,
+                    child: AnimatedOpacity(
+                      duration: Duration(milliseconds: duration),
+                      opacity: featUrself ? 1.0 : 0.0,
+                      child: Container(
+                          child: Column(
+                        children: [
+                          Image(
+                              image:
+                                  AssetImage("assets/images/featUrself.jpg")),
+                          //Text(
+                          //    "Feature your Social Media accounts, Websites, Apps etc on Social One. It only cost you one time (50rs) for life time featuring. Just fill in some details, pay and be featured! "),
+                        ],
+                      )),
+                    )),
                 /* About */ IgnorePointer(
                   ignoring: !about,
                   child: AnimatedOpacity(
@@ -1299,53 +1357,18 @@ class MyAppState extends State<MyApp> {
                                     onPressed: sendButtonDisabled
                                         ? null
                                         : () {
-                                            try {
-                                              sendMail();
-                                              /*sendEmail(
-                                                nameCtrl.text,
-                                                feedbackCtrl.text,
-                                                "geekysharma31@gmail.com",
-                                              );*/
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(SnackBar(
-                                                backgroundColor: Colors.red,
-                                                content: Row(children: <Widget>[
-                                                  //Icon widget of your choice HERE,
-                                                  Text(
-                                                    "Mail sent",
-                                                    style:
-                                                        TextStyle(fontSize: 17),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 10,
-                                                  ),
-                                                  Icon(
-                                                    Icons.error,
-                                                    color: Colors.white,
-                                                  )
-                                                ]),
-                                              ));
-                                            } catch (error) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(SnackBar(
-                                                backgroundColor: Colors.red,
-                                                content: Row(children: <Widget>[
-                                                  //Icon widget of your choice HERE,
-                                                  Text(
-                                                    "Error occured",
-                                                    style:
-                                                        TextStyle(fontSize: 17),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 10,
-                                                  ),
-                                                  Icon(
-                                                    Icons.error,
-                                                    color: Colors.white,
-                                                  )
-                                                ]),
-                                              ));
-                                            }
+                                            Uri emailLaunchUri = Uri(
+                                                scheme: 'mailto',
+                                                path: 'geekysharma31@gmail.com',
+                                                queryParameters: {
+                                                  'subject': nameCtrl.text +
+                                                      " gave feedback",
+                                                  'body': feedbackCtrl.text
+                                                      .toString()
+                                                      .replaceAll("+", " ")
+                                                });
+                                            launchURL(
+                                                emailLaunchUri.toString());
                                           },
                                     style: ButtonStyle(
                                         overlayColor:
@@ -1433,8 +1456,17 @@ class MyAppState extends State<MyApp> {
       ),
     );
   }
+
+  void launchURL(url) async {
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw "Could not launch $url";
+    }
+  }
 }
 
+// ===========================
 class GetStreamData extends StatefulWidget {
   final String type;
   @override
@@ -1476,7 +1508,6 @@ class _GetStreamDataState extends State<GetStreamData> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Text("Loading");
         }
-
         return GridView.count(
           primary: false,
           padding:
@@ -1488,6 +1519,7 @@ class _GetStreamDataState extends State<GetStreamData> {
           shrinkWrap: true,
           children: snapshot.data.docs.map((DocumentSnapshot document) {
             Map<String, dynamic> data = document.data() as Map<String, dynamic>;
+
             return GestureDetector(
               onTap: () {
                 launchURL(data['link']);
