@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 import 'dart:io';
+import 'package:mailer2/mailer.dart';
 
 // DEPENDENCIES
 // flutter_email_sender: ^5.0.2
@@ -9,11 +9,34 @@ import 'dart:io';
 
 // Network Operations
 
+sendMail() {
+  var options = new GmailSmtpOptions()
+    ..username = 'geekysharma31@gmail.com'
+    ..password = '@Geeky4863#--lotion#sonu';
+
+  var emailTransport = new SmtpTransport(options);
+
+  // Create our mail/envelope.
+  var envelope = new Envelope()
+    ..recipients.add('geekysharma31@gmail.com')
+    ..from = 'geekysharma31@gmail.com'
+    ..subject = 'Testing the Dart Mailer library'
+    ..text = 'This is a cool email message. Whats up? 語'
+    ..html = '<h1>Test</h1><p>Hey!</p>';
+
+  // Email it.
+  emailTransport
+      .send(envelope)
+      .then((envelope) => print('Email sent!'))
+      .catchError((e) => print('Error occurred: $e'));
+}
+
 sendEmail(subject, body, uEmail) async {
   Email email = Email(
     body: body,
     subject: subject,
     recipients: [uEmail],
+    isHTML: true,
   );
 
   bool platformResponse;

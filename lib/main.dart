@@ -1,3 +1,4 @@
+// @dart=2.9
 import 'dart:io';
 
 import "package:flutter/material.dart";
@@ -12,28 +13,35 @@ import 'package:icofont_flutter/icofont_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'ad_helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-void main() => runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-        primaryColor: Colors.orange,
-        accentColor: Colors.white,
-        textTheme: TextTheme(bodyText2: TextStyle(color: Colors.black))),
-    home: MyApp()));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+          primaryColor: Colors.orange,
+          accentColor: Colors.white,
+          textTheme: TextTheme(bodyText2: TextStyle(color: Colors.black))),
+      home: MyApp()));
+}
 
 class MyApp extends StatefulWidget {
   //MyApp({Key key}) : super(key: key);
   @override
-  _MyAppState createState() => _MyAppState();
+  MyAppState createState() => MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class MyAppState extends State<MyApp> {
   Future<InitializationStatus> _initGoogleMobileAds() {
     return MobileAds.instance.initialize();
   }
 
   static final _kAdIndex = 4;
-  late BannerAd _ad;
+  BannerAd _ad;
   bool _isAdLoaded = false;
 
   int _getDestinationItemIndex(int rawIndex) {
@@ -94,6 +102,7 @@ class _MyAppState extends State<MyApp> {
   bool games = false;
   bool about = false;
   bool feedback = false;
+  bool featUrself = false;
 
   // App Bar
   bool refresh = false;
@@ -112,7 +121,7 @@ class _MyAppState extends State<MyApp> {
 
   // Text Controllers
 
-  late WebViewController webctrl;
+  WebViewController webctrl;
 
   // Feedback Mail
 
@@ -124,56 +133,116 @@ class _MyAppState extends State<MyApp> {
     currentFocus.unfocus();
   }
 
-  Widget appSection(fadevar, obj, {size = 1}) {
+  void webLoader(url) {
+    webctrl.loadUrl(url);
+  }
+
+  Widget appSection(fadevar, obj, type, {size = 1}) {
     return IgnorePointer(
       ignoring: !fadevar,
       child: AnimatedOpacity(
         duration: Duration(milliseconds: duration),
         opacity: fadevar ? 1.0 : 0.0,
-        child: Container(
-            //padding: EdgeInsets.only(top: 10),
-            margin: EdgeInsets.only(left: 14, right: 14),
-            child: GridView.extent(
-              primary: false,
-              padding:
-                  const EdgeInsets.only(top: 20, bottom: 20, right: 6, left: 6),
-              crossAxisSpacing: 20,
-              mainAxisSpacing: 20,
-              childAspectRatio: (140 / 200),
-              maxCrossAxisExtent: 200.0,
-              children: <Widget>[
-                appCard(obj[0][0], () {
-                  openWebView(obj[0][1]);
-                }),
-                appCard(obj[1][0], () {
-                  openWebView(obj[1][1]);
-                }),
-                appCard(obj[2][0], () {
-                  openWebView(obj[2][1]);
-                }),
-                appCard(obj[3][0], () {
-                  openWebView(obj[3][1]);
-                }),
-                appCard(obj[4][0], () {
-                  openWebView(obj[4][1]);
-                }),
-                appCard(obj[5][0], () {
-                  openWebView(obj[5][1]);
-                }),
-                appCard(obj[6][0], () {
-                  openWebView(obj[6][1]);
-                }),
-                appCard(obj[7][0], () {
-                  openWebView(obj[7][1]);
-                }),
-                appCard(obj[8][0], () {
-                  openWebView(obj[8][1]);
-                }),
-                appCard(obj[9][0], () {
-                  openWebView(obj[9][1]);
-                }),
-              ],
-            )),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                  margin: EdgeInsets.only(left: 14, right: 14),
+                  child: Expanded(
+                    child: GridView.extent(
+                      primary: false,
+                      padding: const EdgeInsets.only(
+                          top: 20, bottom: 20, right: 6, left: 6),
+                      crossAxisSpacing: 20,
+                      mainAxisSpacing: 20,
+                      childAspectRatio: (140 / 200),
+                      maxCrossAxisExtent: 200.0,
+                      shrinkWrap: true,
+                      children: <Widget>[
+                        appCard(obj[0][0], () {
+                          openWebView(obj[0][1]);
+                        }),
+                        appCard(obj[1][0], () {
+                          openWebView(obj[1][1]);
+                        }),
+                        appCard(obj[2][0], () {
+                          openWebView(obj[2][1]);
+                        }),
+                        appCard(obj[3][0], () {
+                          openWebView(obj[3][1]);
+                        }),
+                        appCard(obj[4][0], () {
+                          openWebView(obj[4][1]);
+                        }),
+                        appCard(obj[5][0], () {
+                          openWebView(obj[5][1]);
+                        }),
+                        appCard(obj[6][0], () {
+                          openWebView(obj[6][1]);
+                        }),
+                        appCard(obj[7][0], () {
+                          openWebView(obj[7][1]);
+                        }),
+                        appCard(obj[8][0], () {
+                          openWebView(obj[8][1]);
+                        }),
+                        appCard(obj[9][0], () {
+                          openWebView(obj[9][1]);
+                        }),
+                      ],
+                    ),
+                  )),
+              Text(
+                "FEATURED",
+                style: GoogleFonts.openSans(
+                    fontSize: 15,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 3),
+                textAlign: TextAlign.left,
+              ),
+              GestureDetector(
+                onTap: () async {
+                  try {
+                    final result =
+                        await InternetAddress.lookup('www.google.com');
+                    if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+                      setState(() {
+                        openedByClosed = false;
+                        _webvisible = false;
+                        _loading = true;
+                        _closeVisible = true;
+                        refresh = true;
+                      });
+                    }
+                  } on SocketException catch (_) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      backgroundColor: Colors.red,
+                      content: Row(children: <Widget>[
+                        //Icon widget of your choice HERE,
+                        Text(
+                          "Not connected",
+                          style: TextStyle(fontSize: 17),
+                        ),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        Icon(
+                          Icons.signal_cellular_connected_no_internet_4_bar,
+                          color: Colors.white,
+                        )
+                      ]),
+                    ));
+                  }
+                },
+                child: Container(
+                  margin: EdgeInsets.only(left: 14, right: 14),
+                  child: Expanded(child: GetStreamData(type)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -569,6 +638,7 @@ class _MyAppState extends State<MyApp> {
       appBar: AppBar(
         bottomOpacity: 100,
         shadowColor: Colors.orange,
+        backgroundColor: Colors.orange,
         iconTheme: IconThemeData(color: Colors.white),
         title: Text(text, style: TextStyle(color: Colors.white)),
         actions: <Widget>[
@@ -624,7 +694,7 @@ class _MyAppState extends State<MyApp> {
       body: new NotificationListener(
         onNotification: (v) {
           if (v is ScrollUpdateNotification) {
-            setState(() => top -= (v.scrollDelta! / 2));
+            setState(() => top -= (v.scrollDelta / 2));
           }
           return true;
         },
@@ -652,247 +722,300 @@ class _MyAppState extends State<MyApp> {
                   opacity: !bg ? 1.0 : 0.0,
                   child: Container(height: h, width: w, color: Colors.white),
                 ),
-                /* Social Media */ appSection(socialMedia, [
-                  [
-                    "assets/SocialMedia/facebook.jpeg",
-                    "https://www.facebook.com"
-                  ],
-                  [
-                    "assets/SocialMedia/instagram.jpeg",
-                    "https://www.instagram.com"
-                  ],
-                  ["assets/SocialMedia/koo.jpeg", "https://www.kooapp.com"],
-                  ["assets/SocialMedia/twitter.jpeg", "https://twitter.com"],
-                  [
-                    "assets/SocialMedia/youtube.jpeg",
-                    "https://www.youtube.com"
-                  ],
-                  [
-                    "assets/SocialMedia/sharechat.jpeg",
-                    "https://sharechat.com"
-                  ],
-                  ["assets/SocialMedia/reddit.jpeg", "https://www.reddit.com/"],
-                  [
-                    "assets/SocialMedia/linkedin.jpeg",
-                    "https://www.linkedin.com"
-                  ],
-                  ["assets/SocialMedia/tumblr.jpeg", "https://www.tumblr.com"],
-                  [
-                    "assets/SocialMedia/pintrest.jpeg",
-                    "https://in.pinterest.com"
-                  ],
-                ]),
-
-                /* News: Gaming */ appSection(newsGaming, [
-                  [
-                    "assets/NewsGaming/thelegions2.jpeg",
-                    "https://thelegionsgames.blogspot.com/search/label/games"
-                  ],
-                  [
-                    "assets/NewsGaming/ps.jpeg",
-                    "https://blog.playstation.com/"
-                  ],
-                  [
-                    "assets/NewsGaming/xbox.jpeg",
-                    "https://news.xbox.com/en-us/"
-                  ],
-                  ["assets/NewsGaming/ign.jpeg", "https://in.ign.com/"],
-                  [
-                    "assets/NewsGaming/gi.jpeg",
-                    "https://www.gameinformer.com/"
-                  ],
-                  [
-                    "assets/NewsGaming/dualshockers.jpeg",
-                    "https://www.dualshockers.com/"
-                  ],
-                  [
-                    "assets/NewsGaming/gamerheadlines.jpeg",
-                    "https://gamerheadlines.com"
-                  ],
-                  [
-                    "assets/NewsGaming/ni.jpeg",
-                    "https://www.nintendolife.com/news"
-                  ],
-                  [
-                    "assets/NewsGaming/gamespot.jpeg",
-                    "https://www.gamespot.com/news/"
-                  ],
-                  [
-                    "assets/NewsGaming/grplus.jpeg",
-                    "https://www.gamesradar.com/uk/"
-                  ],
-                ]),
-                /* News: Tech */ appSection(newsTech, [
-                  [
-                    "assets/NewsTech/amarujala.jpeg",
-                    "https://www.amarujala.com/technology"
-                  ],
-                  [
-                    "assets/NewsTech/jagran.jpeg",
-                    "https://www.jagran.com/technology-hindi.html"
-                  ],
-                  [
-                    "assets/NewsTech/theverge.jpeg",
-                    "https://www.theverge.com/tech"
-                  ],
-                  ["assets/NewsTech/bgr.jpeg", "https://bgr.com/tech/"],
-                  [
-                    "assets/NewsTech/gadgetsnow.jpeg",
-                    "https://www.gadgetsnow.com/tech-news"
-                  ],
-                  ["assets/NewsTech/cnet.jpeg", "https://www.cnet.com/news/"],
-                  [
-                    "assets/NewsTech/axios.jpeg",
-                    "https://www.axios.com/technology/"
-                  ],
-                  ["assets/NewsTech/engadget.jpeg", "https://www.engadget.com"],
-                  ["assets/NewsTech/gizmodo.jpeg", "https://gizmodo.com/tech"],
-                  [
-                    "assets/NewsTech/bsn.jpeg",
-                    "https://brightsideofnews.com/tech-news/"
-                  ],
-                ]),
-                /* News: Financial */ appSection(newsFinancial, [
-                  ["assets/NewsFinancial/nse.jpg", "https://www.nseindia.com"],
-                  ["assets/NewsFinancial/bse.jpg", "https://www.bseindia.com"],
-                  [
-                    "assets/NewsFinancial/forbes.jpg",
-                    "https://www.forbes.com/?sh=3f15efbb2254"
-                  ],
-                  [
-                    "assets/NewsFinancial/reuters.jpg",
-                    "https://www.reuters.com/markets"
-                  ],
-                  ["assets/NewsFinancial/ft.jpg", "https://www.ft.com"],
-                  [
-                    "assets/NewsFinancial/moneycontrol.jpg",
-                    "https://www.moneycontrol.com"
-                  ],
-                  [
-                    "assets/NewsFinancial/investing.jpg",
-                    "https://in.investing.com/?ref=www"
-                  ],
-                  [
-                    "assets/NewsFinancial/screener.jpg",
-                    "https://www.screener.in"
-                  ],
-                  [
-                    "assets/NewsFinancial/mw.jpg",
-                    "https://www.marketwatch.com"
-                  ],
-                  [
-                    "assets/NewsFinancial/etm.jpg",
-                    "https://economictimes.indiatimes.com/markets"
-                  ],
-                ]),
-                /* News: Sports */ appSection(newsSports, [
-                  [
-                    "assets/NewsSports/nbcsports.jpeg",
-                    "https://www.nbcsports.com"
-                  ],
-                  [
-                    "assets/NewsSports/cricbuzz.jpeg",
-                    "https://www.cricbuzz.com"
-                  ],
-                  [
-                    "assets/NewsSports/isn.jpeg",
-                    "http://www.indiansportsnews.com"
-                  ],
-                  [
-                    "assets/NewsSports/wwe.jpeg",
-                    "https://www.wwe.com/shows/wwe-now"
-                  ],
-                  ["assets/NewsSports/f1.jpeg", "https://www.formula1.com"],
-                  ["assets/NewsSports/espn.jpeg", "https://www.espn.in"],
-                  ["assets/NewsSports/247sports.jpeg", "https://247sports.com"],
-                  ["assets/NewsSports/deadspin.jpeg", "https://deadspin.com"],
-                  [
-                    "assets/NewsSports/bet365.jpeg",
-                    "https://www.bet365.com/#/AS/B3/"
-                  ],
-                  ["assets/NewsSports/sk.jpeg", "https://www.sportskeeda.com"],
-                ]),
-                /* News: Local */ appSection(newsLocal, [
-                  [
-                    "assets/NewsLocal/ddnews.jpeg",
-                    "http://ddnews.gov.in/national"
-                  ],
-                  [
-                    "assets/NewsLocal/ani.jpeg",
-                    "https://aninews.in/category/national/general-news/"
-                  ],
-                  [
-                    "assets/NewsLocal/ians.jpeg",
-                    "https://ians.in/index.php?param=category/139/139"
-                  ],
-                  [
-                    "assets/NewsLocal/amarujala.jpeg",
-                    "https://www.amarujala.com/india-news?src=mainmenu"
-                  ],
-                  [
-                    "assets/NewsLocal/jagran.jpeg",
-                    "https://www.jagran.com/news/national-news-hindi.html"
-                  ],
-                  [
-                    "assets/NewsLocal/zeenews.jpeg",
-                    "https://zeenews.india.com/india"
-                  ],
-                  [
-                    "assets/NewsLocal/hindustantimes.jpeg",
-                    "https://www.hindustantimes.com/india-news"
-                  ],
-                  [
-                    "assets/NewsLocal/dainikbhaskar.jpeg",
-                    "https://www.bhaskar.com/national/"
-                  ],
-                  [
-                    "assets/NewsLocal/patrika.jpeg",
-                    "https://www.patrika.com/india-news/"
-                  ],
-                  [
-                    "assets/NewsLocal/india.jpeg",
-                    "https://www.india.com/news/india/"
-                  ],
-                ]),
-                /* News: Global */ appSection(newsGlobal, [
-                  [
-                    "assets/NewsGlobal/nyt.jpeg",
-                    "https://www.nytimes.com/international/section/world"
-                  ],
-                  ["assets/NewsGlobal/cnn.jpeg", "https://edition.cnn.com"],
-                  [
-                    "assets/NewsGlobal/reuters.jpeg",
-                    "https://www.reuters.com/world/"
-                  ],
-                  [
-                    "assets/NewsGlobal/cnbc.jpeg",
-                    "https://www.cnbc.com/world/"
-                  ],
-                  [
-                    "assets/NewsGlobal/buzzfeed.jpeg",
-                    "https://www.buzzfeednews.com/section/world"
-                  ],
-                  [
-                    "assets/NewsGlobal/defenseblog.jpeg",
-                    "https://defence-blog.com/"
-                  ],
-                  [
-                    "assets/NewsGlobal/thecipherbrief.jpeg",
-                    "https://www.thecipherbrief.com"
-                  ],
-                  [
-                    "assets/NewsGlobal/euronews.jpeg",
-                    "https://www.euronews.com/news/international"
-                  ],
-                  [
-                    "assets/NewsGlobal/dw.jpeg",
-                    "https://www.dw.com/en/top-stories/s-9097"
-                  ],
-                  [
-                    "assets/NewsGlobal/south.jpeg",
-                    "https://www.smh.com.au/world"
-                  ],
-                ]),
+                /* Social Media */ appSection(
+                    socialMedia,
+                    [
+                      [
+                        "assets/SocialMedia/facebook.jpeg",
+                        "https://www.facebook.com"
+                      ],
+                      [
+                        "assets/SocialMedia/instagram.jpeg",
+                        "https://www.instagram.com"
+                      ],
+                      ["assets/SocialMedia/koo.jpeg", "https://www.kooapp.com"],
+                      [
+                        "assets/SocialMedia/twitter.jpeg",
+                        "https://twitter.com"
+                      ],
+                      [
+                        "assets/SocialMedia/youtube.jpeg",
+                        "https://www.youtube.com"
+                      ],
+                      [
+                        "assets/SocialMedia/sharechat.jpeg",
+                        "https://sharechat.com"
+                      ],
+                      [
+                        "assets/SocialMedia/reddit.jpeg",
+                        "https://www.reddit.com/"
+                      ],
+                      [
+                        "assets/SocialMedia/linkedin.jpeg",
+                        "https://www.linkedin.com"
+                      ],
+                      [
+                        "assets/SocialMedia/tumblr.jpeg",
+                        "https://www.tumblr.com"
+                      ],
+                      [
+                        "assets/SocialMedia/pintrest.jpeg",
+                        "https://in.pinterest.com"
+                      ],
+                    ],
+                    "SocialMediaFeatured"),
+                /* News: Gaming */ appSection(
+                    newsGaming,
+                    [
+                      [
+                        "assets/NewsGaming/thelegions2.jpeg",
+                        "https://thelegionsgames.blogspot.com/search/label/games"
+                      ],
+                      [
+                        "assets/NewsGaming/ps.jpeg",
+                        "https://blog.playstation.com/"
+                      ],
+                      [
+                        "assets/NewsGaming/xbox.jpeg",
+                        "https://news.xbox.com/en-us/"
+                      ],
+                      ["assets/NewsGaming/ign.jpeg", "https://in.ign.com/"],
+                      [
+                        "assets/NewsGaming/gi.jpeg",
+                        "https://www.gameinformer.com/"
+                      ],
+                      [
+                        "assets/NewsGaming/dualshockers.jpeg",
+                        "https://www.dualshockers.com/"
+                      ],
+                      [
+                        "assets/NewsGaming/gamerheadlines.jpeg",
+                        "https://gamerheadlines.com"
+                      ],
+                      [
+                        "assets/NewsGaming/ni.jpeg",
+                        "https://www.nintendolife.com/news"
+                      ],
+                      [
+                        "assets/NewsGaming/gamespot.jpeg",
+                        "https://www.gamespot.com/news/"
+                      ],
+                      [
+                        "assets/NewsGaming/grplus.jpeg",
+                        "https://www.gamesradar.com/uk/"
+                      ],
+                    ],
+                    "GamingNewsFeatured"),
+                /* News: Tech */ appSection(
+                    newsTech,
+                    [
+                      [
+                        "assets/NewsTech/amarujala.jpeg",
+                        "https://www.amarujala.com/technology"
+                      ],
+                      [
+                        "assets/NewsTech/jagran.jpeg",
+                        "https://www.jagran.com/technology-hindi.html"
+                      ],
+                      [
+                        "assets/NewsTech/theverge.jpeg",
+                        "https://www.theverge.com/tech"
+                      ],
+                      ["assets/NewsTech/bgr.jpeg", "https://bgr.com/tech/"],
+                      [
+                        "assets/NewsTech/gadgetsnow.jpeg",
+                        "https://www.gadgetsnow.com/tech-news"
+                      ],
+                      [
+                        "assets/NewsTech/cnet.jpeg",
+                        "https://www.cnet.com/news/"
+                      ],
+                      [
+                        "assets/NewsTech/axios.jpeg",
+                        "https://www.axios.com/technology/"
+                      ],
+                      [
+                        "assets/NewsTech/engadget.jpeg",
+                        "https://www.engadget.com"
+                      ],
+                      [
+                        "assets/NewsTech/gizmodo.jpeg",
+                        "https://gizmodo.com/tech"
+                      ],
+                      [
+                        "assets/NewsTech/bsn.jpeg",
+                        "https://brightsideofnews.com/tech-news/"
+                      ],
+                    ],
+                    "TechNewsFeatured"),
+                /* News: Financial */ appSection(
+                    newsFinancial,
+                    [
+                      [
+                        "assets/NewsFinancial/nse.jpg",
+                        "https://www.nseindia.com"
+                      ],
+                      [
+                        "assets/NewsFinancial/bse.jpg",
+                        "https://www.bseindia.com"
+                      ],
+                      [
+                        "assets/NewsFinancial/forbes.jpg",
+                        "https://www.forbes.com/?sh=3f15efbb2254"
+                      ],
+                      [
+                        "assets/NewsFinancial/reuters.jpg",
+                        "https://www.reuters.com/markets"
+                      ],
+                      ["assets/NewsFinancial/ft.jpg", "https://www.ft.com"],
+                      [
+                        "assets/NewsFinancial/moneycontrol.jpg",
+                        "https://www.moneycontrol.com"
+                      ],
+                      [
+                        "assets/NewsFinancial/investing.jpg",
+                        "https://in.investing.com/?ref=www"
+                      ],
+                      [
+                        "assets/NewsFinancial/screener.jpg",
+                        "https://www.screener.in"
+                      ],
+                      [
+                        "assets/NewsFinancial/mw.jpg",
+                        "https://www.marketwatch.com"
+                      ],
+                      [
+                        "assets/NewsFinancial/etm.jpg",
+                        "https://economictimes.indiatimes.com/markets"
+                      ],
+                    ],
+                    "FinancialNewsFeatured"),
+                /* News: Sports */ appSection(
+                    newsSports,
+                    [
+                      [
+                        "assets/NewsSports/nbcsports.jpeg",
+                        "https://www.nbcsports.com"
+                      ],
+                      [
+                        "assets/NewsSports/cricbuzz.jpeg",
+                        "https://www.cricbuzz.com"
+                      ],
+                      [
+                        "assets/NewsSports/isn.jpeg",
+                        "http://www.indiansportsnews.com"
+                      ],
+                      [
+                        "assets/NewsSports/wwe.jpeg",
+                        "https://www.wwe.com/shows/wwe-now"
+                      ],
+                      ["assets/NewsSports/f1.jpeg", "https://www.formula1.com"],
+                      ["assets/NewsSports/espn.jpeg", "https://www.espn.in"],
+                      [
+                        "assets/NewsSports/247sports.jpeg",
+                        "https://247sports.com"
+                      ],
+                      [
+                        "assets/NewsSports/deadspin.jpeg",
+                        "https://deadspin.com"
+                      ],
+                      [
+                        "assets/NewsSports/bet365.jpeg",
+                        "https://www.bet365.com/#/AS/B3/"
+                      ],
+                      [
+                        "assets/NewsSports/sk.jpeg",
+                        "https://www.sportskeeda.com"
+                      ],
+                    ],
+                    "SportsFeatured"),
+                /* News: Local */ appSection(
+                    newsLocal,
+                    [
+                      [
+                        "assets/NewsLocal/ddnews.jpeg",
+                        "http://ddnews.gov.in/national"
+                      ],
+                      [
+                        "assets/NewsLocal/ani.jpeg",
+                        "https://aninews.in/category/national/general-news/"
+                      ],
+                      [
+                        "assets/NewsLocal/ians.jpeg",
+                        "https://ians.in/index.php?param=category/139/139"
+                      ],
+                      [
+                        "assets/NewsLocal/amarujala.jpeg",
+                        "https://www.amarujala.com/india-news?src=mainmenu"
+                      ],
+                      [
+                        "assets/NewsLocal/jagran.jpeg",
+                        "https://www.jagran.com/news/national-news-hindi.html"
+                      ],
+                      [
+                        "assets/NewsLocal/zeenews.jpeg",
+                        "https://zeenews.india.com/india"
+                      ],
+                      [
+                        "assets/NewsLocal/hindustantimes.jpeg",
+                        "https://www.hindustantimes.com/india-news"
+                      ],
+                      [
+                        "assets/NewsLocal/dainikbhaskar.jpeg",
+                        "https://www.bhaskar.com/national/"
+                      ],
+                      [
+                        "assets/NewsLocal/patrika.jpeg",
+                        "https://www.patrika.com/india-news/"
+                      ],
+                      [
+                        "assets/NewsLocal/india.jpeg",
+                        "https://www.india.com/news/india/"
+                      ],
+                    ],
+                    "LocalFeatured"),
+                /* News: Global */ appSection(
+                    newsGlobal,
+                    [
+                      [
+                        "assets/NewsGlobal/nyt.jpeg",
+                        "https://www.nytimes.com/international/section/world"
+                      ],
+                      ["assets/NewsGlobal/cnn.jpeg", "https://edition.cnn.com"],
+                      [
+                        "assets/NewsGlobal/reuters.jpeg",
+                        "https://www.reuters.com/world/"
+                      ],
+                      [
+                        "assets/NewsGlobal/cnbc.jpeg",
+                        "https://www.cnbc.com/world/"
+                      ],
+                      [
+                        "assets/NewsGlobal/buzzfeed.jpeg",
+                        "https://www.buzzfeednews.com/section/world"
+                      ],
+                      [
+                        "assets/NewsGlobal/defenseblog.jpeg",
+                        "https://defence-blog.com/"
+                      ],
+                      [
+                        "assets/NewsGlobal/thecipherbrief.jpeg",
+                        "https://www.thecipherbrief.com"
+                      ],
+                      [
+                        "assets/NewsGlobal/euronews.jpeg",
+                        "https://www.euronews.com/news/international"
+                      ],
+                      [
+                        "assets/NewsGlobal/dw.jpeg",
+                        "https://www.dw.com/en/top-stories/s-9097"
+                      ],
+                      [
+                        "assets/NewsGlobal/south.jpeg",
+                        "https://www.smh.com.au/world"
+                      ],
+                    ],
+                    "GlobalFeatured"),
                 /* Music */ appSection(
                     music,
                     [
@@ -922,6 +1045,7 @@ class _MyAppState extends State<MyApp> {
                       ["assets/Music/gaana.jpeg", "https://gaana.com/"],
                       ["assets/Music/stream.jpeg", "https://streamplayer.io/"],
                     ],
+                    "MusicFeatured",
                     size: 2),
                 /* Games */ appSection(
                     games,
@@ -959,6 +1083,7 @@ class _MyAppState extends State<MyApp> {
                       ],
                       ["assets/Games/slitcher.jpeg", "https://slither.io/"],
                     ],
+                    "GamesFeatured",
                     size: 2),
                 /* About */ IgnorePointer(
                   ignoring: !about,
@@ -1174,11 +1299,53 @@ class _MyAppState extends State<MyApp> {
                                     onPressed: sendButtonDisabled
                                         ? null
                                         : () {
-                                            sendEmail(
-                                              nameCtrl.text,
-                                              feedbackCtrl.text,
-                                              "geekysharma31@gmail.com",
-                                            );
+                                            try {
+                                              sendMail();
+                                              /*sendEmail(
+                                                nameCtrl.text,
+                                                feedbackCtrl.text,
+                                                "geekysharma31@gmail.com",
+                                              );*/
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(SnackBar(
+                                                backgroundColor: Colors.red,
+                                                content: Row(children: <Widget>[
+                                                  //Icon widget of your choice HERE,
+                                                  Text(
+                                                    "Mail sent",
+                                                    style:
+                                                        TextStyle(fontSize: 17),
+                                                  ),
+                                                  SizedBox(
+                                                    width: 10,
+                                                  ),
+                                                  Icon(
+                                                    Icons.error,
+                                                    color: Colors.white,
+                                                  )
+                                                ]),
+                                              ));
+                                            } catch (error) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(SnackBar(
+                                                backgroundColor: Colors.red,
+                                                content: Row(children: <Widget>[
+                                                  //Icon widget of your choice HERE,
+                                                  Text(
+                                                    "Error occured",
+                                                    style:
+                                                        TextStyle(fontSize: 17),
+                                                  ),
+                                                  SizedBox(
+                                                    width: 10,
+                                                  ),
+                                                  Icon(
+                                                    Icons.error,
+                                                    color: Colors.white,
+                                                  )
+                                                ]),
+                                              ));
+                                            }
                                           },
                                     style: ButtonStyle(
                                         overlayColor:
@@ -1264,6 +1431,87 @@ class _MyAppState extends State<MyApp> {
               ],
             )),
       ),
+    );
+  }
+}
+
+class GetStreamData extends StatefulWidget {
+  final String type;
+  @override
+  _GetStreamDataState createState() => _GetStreamDataState();
+  GetStreamData(this.type);
+}
+
+class _GetStreamDataState extends State<GetStreamData> {
+  Stream<QuerySnapshot> _usersStream;
+  final MyAppState a = new MyAppState();
+  @override
+  void initState() {
+    _usersStream =
+        FirebaseFirestore.instance.collection(widget.type).snapshots();
+    super.initState();
+  }
+
+  void launchURL(url) async {
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw "Could not launch $url";
+    }
+  }
+
+  void openLink(url) {
+    MyAppState().openWebView(url);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _usersStream,
+      builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+        if (snapshot.hasError) {
+          return Text('Something went wrong');
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Text("Loading");
+        }
+
+        return GridView.count(
+          primary: false,
+          padding:
+              const EdgeInsets.only(top: 20, bottom: 20, right: 6, left: 6),
+          crossAxisSpacing: 20,
+          mainAxisSpacing: 20,
+          childAspectRatio: (140 / 200),
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          children: snapshot.data.docs.map((DocumentSnapshot document) {
+            Map<String, dynamic> data = document.data() as Map<String, dynamic>;
+            return GestureDetector(
+              onTap: () {
+                launchURL(data['link']);
+              },
+              child: Container(
+                  height: 200,
+                  width: 140,
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          offset: Offset(0, 0),
+                          blurRadius: 5.0,
+                          spreadRadius: 1.5,
+                          color: Colors.grey,
+                        )
+                      ],
+                      image: DecorationImage(
+                          image: new NetworkImage(data['image'])))),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }
