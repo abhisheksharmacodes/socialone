@@ -1,10 +1,11 @@
-// @dart=2.9
+//@dart=2.9
 import 'dart:io';
 
+import 'package:flutter/cupertino.dart';
 import "package:flutter/material.dart";
 import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
-import 'package:social_one/GSFramework.dart';
+import 'package:flutter/widgets.dart';
 import 'Basic.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:back_button_interceptor/back_button_interceptor.dart';
@@ -16,6 +17,7 @@ import 'ad_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +38,8 @@ class MyApp extends StatefulWidget {
 }
 
 class MyAppState extends State<MyApp> {
+  bool showImage = false;
+
   Future<InitializationStatus> _initGoogleMobileAds() {
     return MobileAds.instance.initialize();
   }
@@ -51,9 +55,17 @@ class MyAppState extends State<MyApp> {
     return rawIndex;
   }
 
-  void initState() {
-    BackButtonInterceptor.add(myInterceptor);
+  @override
+  void dispose() {
+    BackButtonInterceptor.remove(myInterceptor);
+    _ad.dispose();
+    super.dispose();
+  }
 
+  @override
+  void initState() {
+    _TypesOfPost = getDropDownMenuItems();
+    BackButtonInterceptor.add(myInterceptor);
     // ads
     _ad = BannerAd(
       adUnitId: AdHelper.bannerAdUnitId,
@@ -73,14 +85,8 @@ class MyAppState extends State<MyApp> {
         },
       ),
     )..load();
-    super.initState();
-  }
 
-  @override
-  void dispose() {
-    BackButtonInterceptor.remove(myInterceptor);
-    _ad.dispose();
-    super.dispose();
+    super.initState();
   }
 
   var icon = 45;
@@ -113,10 +119,8 @@ class MyAppState extends State<MyApp> {
   bool _loading = false;
   bool _webvisible = false;
   bool _closeVisible = false;
-
   bool openedByClosed = false;
   bool sendFeedback = false;
-
   bool sendButtonDisabled = true;
 
   // Text Controllers
@@ -128,13 +132,73 @@ class MyAppState extends State<MyApp> {
   TextEditingController nameCtrl = TextEditingController();
   TextEditingController feedbackCtrl = TextEditingController();
 
+  // Stepper Variables & methods ======================================================
+  String uploadButton = "Upload";
+  XFile image;
+  TextEditingController featuredName = TextEditingController();
+  TextEditingController featuredPostLink = TextEditingController();
+  var postTypeSelected = "Social Media account";
+
+  var linkType = "Link";
+  List types = [
+    "Social Media account",
+    "Websites",
+    "App/Game",
+    "Browser Game",
+    "Computer Software"
+  ];
+  List<DropdownMenuItem<String>> _TypesOfPost;
+  int _currentStep = 0;
+
+  tapped(int step) {
+    setState(() => _currentStep = step);
+  }
+
+  continued() {
+    _currentStep < 2 ? setState(() => _currentStep += 1) : null;
+  }
+
+  cancel() {
+    _currentStep > 0 ? setState(() => _currentStep -= 1) : null;
+  }
+
+  String featImage =
+      "https://scontent.fjdh1-2.fna.fbcdn.net/v/t1.6435-9/242320384_1275201079614448_5250163352803980740_n.jpg?_nc_cat=104&ccb=1-5&_nc_sid=0debeb&_nc_ohc=_6K_KNdwua0AX-4_rKN&_nc_ht=scontent.fjdh1-2.fna&oh=61817d11839f9ac8be3a475c91eb3b1c&oe=6172FD1F";
+
+  List<DropdownMenuItem<String>> getDropDownMenuItems() {
+    List<DropdownMenuItem<String>> items = new List();
+    for (String city in types) {
+      // here we are creating the drop down menu items, you can customize the item right here
+      // but I'll just use a simple text for this
+      items.add(new DropdownMenuItem(value: city, child: new Text(city)));
+    }
+    return items;
+  }
+
+//=====================================================================================
+  featureImage() {
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance.collection("FeatureYourself").snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text('Something went wrong');
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Text("Loading");
+        } else
+          return Container(
+              child: Image(
+            image: NetworkImage(snapshot.data.docs[0]['image']),
+          ));
+      },
+    );
+  }
+
   void focusOut() {
     FocusScopeNode currentFocus = FocusScope.of(context);
     currentFocus.unfocus();
-  }
-
-  void webLoader(url) {
-    webctrl.loadUrl(url);
   }
 
   Widget appSection(fadevar, obj, type, {size = 1}) {
@@ -201,44 +265,10 @@ class MyAppState extends State<MyApp> {
                     letterSpacing: 3),
                 textAlign: TextAlign.left,
               ),
-              GestureDetector(
-                onTap: () async {
-                  try {
-                    final result =
-                        await InternetAddress.lookup('www.google.com');
-                    if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-                      setState(() {
-                        openedByClosed = false;
-                        _webvisible = false;
-                        _loading = true;
-                        _closeVisible = true;
-                        refresh = true;
-                      });
-                    }
-                  } on SocketException catch (_) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      backgroundColor: Colors.red,
-                      content: Row(children: <Widget>[
-                        //Icon widget of your choice HERE,
-                        Text(
-                          "Not connected",
-                          style: TextStyle(fontSize: 17),
-                        ),
-                        SizedBox(
-                          width: 10,
-                        ),
-                        Icon(
-                          Icons.signal_cellular_connected_no_internet_4_bar,
-                          color: Colors.white,
-                        )
-                      ]),
-                    ));
-                  }
-                },
-                child: Container(
-                  margin: EdgeInsets.only(left: 14, right: 14),
-                  child: Expanded(child: GetStreamData(type)),
-                ),
+              Container(
+                margin: EdgeInsets.only(left: 14, right: 14),
+                child: Expanded(
+                    child: GetStreamData(type, swtichCategory: switchCategory)),
               ),
             ],
           ),
@@ -296,7 +326,7 @@ class MyAppState extends State<MyApp> {
     }
   }
 
-  void switchCategory(category) {
+  switchCategory(category) {
     setState(() {
       _loading = false;
       _webvisible = false;
@@ -514,6 +544,7 @@ class MyAppState extends State<MyApp> {
         break;
       case "Feature Yourself":
         {
+          featureImage();
           setState(() {
             socialMedia = false;
             newsGaming = false;
@@ -530,6 +561,14 @@ class MyAppState extends State<MyApp> {
             featUrself = true;
           });
         }
+    }
+  }
+
+  void launchURL(url) async {
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw "Could not launch $url";
     }
   }
 
@@ -768,7 +807,7 @@ class MyAppState extends State<MyApp> {
                     socialMedia,
                     [
                       [
-                        "assets/images/youtube_abhishek.jpg",
+                        "assets/SocialMedia/facebook.jpeg",
                         "https://www.facebook.com"
                       ],
                       [
@@ -1132,16 +1171,208 @@ class MyAppState extends State<MyApp> {
                     child: AnimatedOpacity(
                       duration: Duration(milliseconds: duration),
                       opacity: featUrself ? 1.0 : 0.0,
-                      child: Container(
-                          child: Column(
-                        children: [
-                          Image(
-                              image:
-                                  AssetImage("assets/images/featUrself.jpg")),
-                          //Text(
-                          //    "Feature your Social Media accounts, Websites, Apps etc on Social One. It only cost you one time (50rs) for life time featuring. Just fill in some details, pay and be featured! "),
-                        ],
-                      )),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            featureImage(),
+                            Padding(
+                                padding: const EdgeInsets.all(10.0),
+                                child: RichText(
+                                    textAlign: TextAlign.justify,
+                                    text: TextSpan(
+                                        text:
+                                            "Feature your Social Media accounts, Websites, Apps etc on Social One. It only cost you one time (",
+                                        style: GoogleFonts.openSans(
+                                          color: Colors.grey[600],
+                                          letterSpacing: 1,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                              text: "50rs",
+                                              style: TextStyle(
+                                                  color: Colors.blueAccent,
+                                                  fontWeight:
+                                                      FontWeight.bold)),
+                                          TextSpan(
+                                            text: ") for ",
+                                          ),
+                                          TextSpan(
+                                              text: "life time",
+                                              style: TextStyle(
+                                                  color: Colors.blueAccent,
+                                                  fontWeight:
+                                                      FontWeight.bold)),
+                                          TextSpan(
+                                            text:
+                                                " featuring. Just fill in some details, pay and be featured!  ",
+                                          ),
+                                        ]))),
+                            Stepper(
+                                type: StepperType.vertical,
+                                physics: ScrollPhysics(),
+                                currentStep: _currentStep,
+                                onStepTapped: (step) => tapped(step),
+                                onStepContinue: continued,
+                                onStepCancel: cancel,
+                                steps: [
+                                  Step(
+                                    title: Text("Details"),
+                                    content: Column(
+                                      children: <Widget>[
+                                        SizedBox(
+                                          height: 5,
+                                        ),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: ButtonTheme(
+                                            padding:
+                                                EdgeInsets.only(left: 20),
+                                            child: DropdownButtonFormField(
+                                              isExpanded: true,
+                                              decoration: InputDecoration(
+                                                  labelText: "Post Type",
+                                                  border: OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius
+                                                              .circular(10))),
+                                              icon: Icon(Icons
+                                                  .arrow_drop_down_rounded),
+                                              alignment: Alignment.topLeft,
+                                              focusColor: Colors.white,
+                                              value: postTypeSelected,
+                                              //elevation: 5,
+                                              style: TextStyle(
+                                                  color: Colors.white),
+                                              iconEnabledColor: Colors.black,
+                                              items: <String>[
+                                                'Social Media account',
+                                                'Website',
+                                                'App/Game',
+                                                'Browser Game',
+                                                'Computer Software',
+                                              ].map<DropdownMenuItem<String>>(
+                                                  (String value) {
+                                                return DropdownMenuItem<
+                                                    String>(
+                                                  value: value,
+                                                  child: Text(
+                                                    value,
+                                                    style: TextStyle(
+                                                        color: Colors.black),
+                                                  ),
+                                                );
+                                              }).toList(),
+
+                                              onChanged: (String value) {
+                                                if (value == "App/Game")
+                                                  setState(() {
+                                                    linkType =
+                                                        "Play Store / App Store link";
+                                                  });
+                                                else
+                                                  setState(() {
+                                                    linkType = "Link";
+                                                  });
+                                                setState(() {
+                                                  postTypeSelected = value;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          height: 10,
+                                        ),
+                                        TextFormField(
+                                          controller: featuredPostLink,
+                                          decoration: InputDecoration(
+                                              border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          4)),
+                                              labelText: linkType),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Step(
+                                    title: Text("Image"),
+                                    isActive: _currentStep >= 0,
+                                    state: _currentStep >= 1
+                                        ? StepState.complete
+                                        : StepState.disabled,
+                                    content: Column(
+                                      children: <Widget>[
+                                        RichText(
+                                            text: TextSpan(
+                                                text:
+                                                    "Abhishek Sharma will create an attractive image for your post (",
+                                                style: GoogleFonts.openSans(
+                                                    color: Colors.grey),
+                                                children: [
+                                              TextSpan(
+                                                  text: "for free",
+                                                  style: GoogleFonts.openSans(
+                                                      color:
+                                                          Colors.blueAccent,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                              TextSpan(
+                                                  text:
+                                                      ") but you can also upload your desired image of resolution 700 x 1000. ",
+                                                  style: GoogleFonts.openSans(
+                                                      color: Colors.grey)),
+                                            ])),
+                                        IgnorePointer(
+                                          ignoring: !showImage,
+                                          child: AnimatedOpacity(
+                                            opacity: showImage ? 1.0 : 0.0,
+                                            duration:
+                                                Duration(seconds: duration),
+                                            child: Container(
+                                                decoration: BoxDecoration(
+                                                    border: Border.all(
+                                                        color: Colors.white,
+                                                        width: 2),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            24)),
+                                                height: 200,
+                                                width: 140,
+                                                child: showImage
+                                                    ? Image.file(
+                                                        File(image.path),
+                                                      )
+                                                    : Container(
+                                                        height: 0,
+                                                      )),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () async {
+                                            image = await ImagePicker()
+                                                .pickImage(
+                                                    source:
+                                                        ImageSource.gallery,
+                                                    imageQuality: 50);
+                                            setState(() {
+                                              uploadButton =
+                                                  File(image.path).toString();
+                                              showImage = true;
+                                            });
+                                          },
+                                          child: Container(
+                                            child: Text(uploadButton),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                ])
+                          ],
+                        ),
+                      ),
                     )),
                 /* About */ IgnorePointer(
                   ignoring: !about,
@@ -1456,31 +1687,29 @@ class MyAppState extends State<MyApp> {
       ),
     );
   }
-
-  void launchURL(url) async {
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw "Could not launch $url";
-    }
-  }
 }
 
 // ===========================
 class GetStreamData extends StatefulWidget {
   final String type;
+  final _callback; // callback reference holder
+  //you will pass the callback here in constructor
+
   @override
   _GetStreamDataState createState() => _GetStreamDataState();
-  GetStreamData(this.type);
+  GetStreamData(this.type, {@required void swtichCategory(data)})
+      : _callback = swtichCategory;
 }
 
 class _GetStreamDataState extends State<GetStreamData> {
+  String type;
   Stream<QuerySnapshot> _usersStream;
   final MyAppState a = new MyAppState();
   @override
   void initState() {
     _usersStream =
         FirebaseFirestore.instance.collection(widget.type).snapshots();
+    type = widget.type;
     super.initState();
   }
 
@@ -1490,10 +1719,6 @@ class _GetStreamDataState extends State<GetStreamData> {
     } else {
       throw "Could not launch $url";
     }
-  }
-
-  void openLink(url) {
-    MyAppState().openWebView(url);
   }
 
   @override
@@ -1522,7 +1747,11 @@ class _GetStreamDataState extends State<GetStreamData> {
 
             return GestureDetector(
               onTap: () {
-                launchURL(data['link']);
+                if (data['link'].toString().contains("http"))
+                  launchURL(data['link']);
+                else
+                  widget?._callback(data['link']);
+                //
               },
               child: Container(
                   height: 200,
