@@ -19,6 +19,6 @@ Widget appCard(imgUrl, func) {
                 color: Colors.grey,
               )
             ],
-            image: DecorationImage(image: new AssetImage(imgUrl)))),
+            image: DecorationImage(image: new NetworkImage(imgUrl)))),
   );
 }

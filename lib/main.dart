@@ -1,7 +1,9 @@
 //@dart=2.9
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import "package:flutter/material.dart";
 import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
@@ -18,6 +20,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_email_sender/flutter_email_sender.dart';
+import 'package:upi_india/upi_india.dart';
+import 'package:overlay_dialog/overlay_dialog.dart';
+import 'Splash.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,9 +33,8 @@ void main() async {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
           primaryColor: Colors.orange,
-          accentColor: Colors.white,
           textTheme: TextTheme(bodyText2: TextStyle(color: Colors.black))),
-      home: MyApp()));
+      home: SpalshScreen()));
 }
 
 class MyApp extends StatefulWidget {
@@ -38,7 +44,59 @@ class MyApp extends StatefulWidget {
 }
 
 class MyAppState extends State<MyApp> {
+  // Payment Variables & Methods ===============================================
+
+  UpiIndia _upiIndia = UpiIndia();
+
+  UpiApp gpay = UpiApp.googlePay;
+  UpiApp paytm = UpiApp.paytm;
+  UpiApp phonepe = UpiApp.phonePe;
+  UpiApp bhim = UpiApp.bhim;
+  UpiApp mobikwik = UpiApp.mobikwik;
+  UpiApp amazonPay = UpiApp.amazonPay;
+  UpiApp freecharge = UpiApp.freecharge;
+  UpiApp sbiPay = UpiApp.sbiPay;
+  UpiApp miPayGlobal = UpiApp.miPayGlobal;
+
+  bool showTransImage = false;
+
+  Future<UpiResponse> initiateTransaction(UpiApp app) async {
+    try {
+      return _upiIndia.startTransaction(
+        app: app,
+        receiverUpiId: "geekysharma31@oksbi",
+        receiverName: 'Abhishek Sharma',
+        transactionRefId: '113218141132',
+        transactionNote: 'For life time featuring on Social One',
+        amount: int.parse(price(pricing)).toDouble(),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.red,
+        content: Row(children: <Widget>[
+          //Icon widget of your choice HERE,
+          Text(
+            "This app is not detected on this device",
+            style: TextStyle(fontSize: 17),
+          ),
+          SizedBox(
+            width: 10,
+          ),
+          Icon(
+            Icons.signal_cellular_connected_no_internet_4_bar,
+            color: Colors.white,
+          )
+        ]),
+      ));
+    }
+  }
+
+  XFile trnsImage;
+
+  // ===========================================================================
   bool showImage = false;
+
+  TextEditingController custName = new TextEditingController();
 
   Future<InitializationStatus> _initGoogleMobileAds() {
     return MobileAds.instance.initialize();
@@ -64,8 +122,22 @@ class MyAppState extends State<MyApp> {
 
   @override
   void initState() {
+    AwesomeNotifications().initialize(null, [
+      NotificationChannel(
+          channelKey: 'key1',
+          channelName: 'Social One',
+          channelDescription: 'Notification example',
+          icon: 'resource://drawable/logo_notify',
+          defaultColor: Colors.orange,
+          ledColor: Colors.white,
+          playSound: true,
+          enableLights: true,
+          enableVibration: true)
+    ]);
     _TypesOfPost = getDropDownMenuItems();
     BackButtonInterceptor.add(myInterceptor);
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => getDatabaseEssentials(context));
     // ads
     _ad = BannerAd(
       adUnitId: AdHelper.bannerAdUnitId,
@@ -85,7 +157,7 @@ class MyAppState extends State<MyApp> {
         },
       ),
     )..load();
-
+    notify();
     super.initState();
   }
 
@@ -110,6 +182,13 @@ class MyAppState extends State<MyApp> {
   bool feedback = false;
   bool featUrself = false;
 
+  // Database Variables
+  String imageSrc =
+      "https://dl.dropboxusercontent.com/s/9ewf2wo5ky0dq4h/404.jpg ";
+  bool isDiscount = false;
+  var discount = 0;
+  var pricing = 50;
+
   // App Bar
   bool refresh = false;
   bool reload = false;
@@ -120,7 +199,6 @@ class MyAppState extends State<MyApp> {
   bool _webvisible = false;
   bool _closeVisible = false;
   bool openedByClosed = false;
-  bool sendFeedback = false;
   bool sendButtonDisabled = true;
 
   // Text Controllers
@@ -133,37 +211,171 @@ class MyAppState extends State<MyApp> {
   TextEditingController feedbackCtrl = TextEditingController();
 
   // Stepper Variables & methods ======================================================
+  bool imagePostedFeatured = false;
   String uploadButton = "Upload";
   XFile image;
-  TextEditingController featuredName = TextEditingController();
   TextEditingController featuredPostLink = TextEditingController();
   var postTypeSelected = "Social Media account";
 
   var linkType = "Link";
   List types = [
-    "Social Media account",
+    "Social Media/YouTube account",
     "Websites",
-    "App/Game",
-    "Browser Game",
+    "App",
+    "Game",
     "Computer Software"
   ];
   List<DropdownMenuItem<String>> _TypesOfPost;
   int _currentStep = 0;
+
+  void notify() async {
+    await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+            id: 1,
+            channelKey: 'key1',
+            title: "Feature Yourself",
+            notificationLayout: NotificationLayout.BigPicture,
+            bigPicture:
+                "https://dl.dropboxusercontent.com/s/nl26w44waf5pm76/disc20.jpg?dl=0",
+           //payload: '{  "notification": {    "body": "this is a body",    "title": "this is a title",  },  "data": {    "click_action": "FLUTTER_NOTIFICATION_CLICK",    "sound": "default",     "status": "done",    "screen": "screenA",  },  "to": "<FCM TOKEN>"}',
+            body:
+                "Promote your Social Media, Blog etc with lowest cost till now 😃",
+            backgroundColor: Colors.grey));
+  }
 
   tapped(int step) {
     setState(() => _currentStep = step);
   }
 
   continued() {
-    _currentStep < 2 ? setState(() => _currentStep += 1) : null;
+    double deviceWidth = MediaQuery.of(context).size.width;
+    double deviceHeight = MediaQuery.of(context).size.height;
+    if (_currentStep < 2) {
+      setState(() => _currentStep += 1);
+    } else {
+      if (featuredPostLink.text.isEmpty || !imagePostedFeatured) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: Colors.yellowAccent[700],
+          content: Row(children: <Widget>[
+            //Icon widget of your choice HERE,
+            Text(
+              "Fill out all the necessary details",
+              style: TextStyle(
+                fontSize: 17,
+                color: Colors.black,
+              ),
+            ),
+            SizedBox(
+              width: 10,
+            ),
+            Icon(
+              Icons.warning,
+              color: Colors.black,
+            )
+          ]),
+        ));
+      } else {
+        showImage = false;
+        showTransImage = false;
+        featuredPostLink.clear();
+        custName.clear();
+        setState(() {});
+        _currentStep = 0;
+        DialogHelper().show(
+          context,
+          DialogWidget.custom(
+              child: Center(
+                  child: SingleChildScrollView(
+            child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.white,
+                ),
+                height: deviceHeight * 0.7,
+                width: deviceWidth * 0.7,
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      child: checkUrl(
+                          "https://thumbs.dreamstime.com/b/beautiful-handwritten-greeting-lettering-congratulations-decoration-fireworks-vector-illustration-215223347.jpg"),
+                      borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(7),
+                          topRight: Radius.circular(7)),
+                    ), //
+                    Container(
+                        padding: EdgeInsets.all(15),
+                        child: RichText(
+                          textAlign: TextAlign.justify,
+                          text: TextSpan(
+                              text: "Your",
+                              style: GoogleFonts.openSans(
+                                color: Colors.grey[600],
+                                height: 1.77,
+                              ),
+                              children: [
+                                TextSpan(
+                                    text: " Featured Post ",
+                                    style: GoogleFonts.openSans(
+                                        fontWeight: FontWeight.bold)),
+                                TextSpan(
+                                  text: "will be visible within",
+                                ),
+                                TextSpan(
+                                    text: " 2 Hours.",
+                                    style: GoogleFonts.openSans(
+                                        fontWeight: FontWeight.bold)),
+                                TextSpan(
+                                  text: " If the submission is free of errors.",
+                                ),
+                                TextSpan(
+                                  text:
+                                      "\n       In case, if you wanna change your link in future, You may contact the developer at ",
+                                ),
+                                TextSpan(
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () async {
+                                        final Email email = Email(
+                                          body: " ",
+                                          subject: " ",
+                                          recipients: [
+                                            "geekysharma31@gmail.com"
+                                          ],
+                                        );
+                                        try {
+                                          await FlutterEmailSender.send(email);
+                                        } catch (error) {}
+                                      },
+                                    text: " geekysharma31@gmail.com",
+                                    style: GoogleFonts.openSans(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blueAccent)),
+                                TextSpan(
+                                  text:
+                                      "\n      If you don't see your post on Social One after 2 hours then let the developer know about that. ",
+                                ),
+                                TextSpan(
+                                  text: "\n      You can feature",
+                                ),
+                                TextSpan(
+                                    text: " unlimited posts",
+                                    style: GoogleFonts.openSans(
+                                        fontWeight: FontWeight.bold)),
+                                TextSpan(
+                                  text: " on Social One by paying each time.",
+                                ),
+                              ]),
+                        )),
+                  ],
+                )),
+          ))),
+        );
+      }
+    }
   }
 
   cancel() {
     _currentStep > 0 ? setState(() => _currentStep -= 1) : null;
   }
-
-  String featImage =
-      "https://scontent.fjdh1-2.fna.fbcdn.net/v/t1.6435-9/242320384_1275201079614448_5250163352803980740_n.jpg?_nc_cat=104&ccb=1-5&_nc_sid=0debeb&_nc_ohc=_6K_KNdwua0AX-4_rKN&_nc_ht=scontent.fjdh1-2.fna&oh=61817d11839f9ac8be3a475c91eb3b1c&oe=6172FD1F";
 
   List<DropdownMenuItem<String>> getDropDownMenuItems() {
     List<DropdownMenuItem<String>> items = new List();
@@ -175,26 +387,112 @@ class MyAppState extends State<MyApp> {
     return items;
   }
 
-//=====================================================================================
-  featureImage() {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance.collection("FeatureYourself").snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Text('Something went wrong');
-        }
+//========================================================================
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Text("Loading");
-        } else
-          return Container(
-              child: Image(
-            image: NetworkImage(snapshot.data.docs[0]['image']),
-          ));
-      },
-    );
+  void getDatabaseEssentials(context) async {
+    var collection = FirebaseFirestore.instance.collection('initialize');
+    var docSnapshot = await collection.doc('UruGtwHaxV6Ty7nYQNvV').get();
+
+    Map<String, dynamic> data = docSnapshot.data();
+
+    setState(() {
+      imageSrc = data['featureImage'];
+      isDiscount = data["isDiscount"];
+      discount = data["discount"];
+      pricing = data["pricing"];
+    });
   }
+
+  Future<void> send() async {
+    final Email email = Email(
+      body: "Post Image for " + postTypeSelected,
+      subject: "Post Image",
+      recipients: ["geekysharma31@gmail.com"],
+      attachmentPaths: [image.path],
+    );
+
+    String platformResponse;
+
+    try {
+      await FlutterEmailSender.send(email);
+      platformResponse = 'success';
+    } catch (error) {
+      platformResponse = error.toString();
+    }
+
+    if (!mounted) return;
+
+    final snackBar = SnackBar(content: Text(platformResponse));
+
+// Find the ScaffoldMessenger in the widget tree
+// and use it to show a SnackBar.
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+
+  Future<void> sendTrns() async {
+    final Email email = Email(
+      body: "Transaction Receipt",
+      subject: "Payment processed by dear " + custName.text,
+      recipients: ["geekysharma31@gmail.com"],
+      attachmentPaths: [trnsImage.path],
+    );
+
+    String platformResponse;
+
+    try {
+      await FlutterEmailSender.send(email);
+      platformResponse = 'success';
+    } catch (error) {
+      platformResponse = error.toString();
+    }
+
+    if (!mounted) return;
+
+    final snackBar = SnackBar(content: Text(platformResponse));
+
+// Find the ScaffoldMessenger in the widget tree
+// and use it to show a SnackBar.
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+
+  Future<void> sndFeedback() async {
+    final Email email = Email(
+      body: feedbackCtrl.text,
+      subject: nameCtrl.text + " gave Feedback!",
+      recipients: ["geekysharma31@gmail.com"],
+    );
+
+    String platformResponse;
+
+    try {
+      await FlutterEmailSender.send(email);
+      platformResponse = 'success';
+    } catch (error) {
+      platformResponse = error.toString();
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: Colors.green,
+      content: Row(children: <Widget>[
+        //Icon widget of your choice HERE,
+        Text(
+          "Thanks for Feedback",
+          style: TextStyle(fontSize: 17),
+        ),
+        SizedBox(
+          width: 5,
+        ),
+        Icon(
+          Icons.check,
+          size: 24,
+          color: Colors.white,
+        )
+      ]),
+    ));
+  }
+
+// =======================================================================
 
   void focusOut() {
     FocusScopeNode currentFocus = FocusScope.of(context);
@@ -213,62 +511,63 @@ class MyAppState extends State<MyApp> {
             children: [
               Container(
                   margin: EdgeInsets.only(left: 14, right: 14),
-                  child: Expanded(
-                    child: GridView.extent(
-                      primary: false,
-                      padding: const EdgeInsets.only(
-                          top: 20, bottom: 20, right: 6, left: 6),
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: (140 / 200),
-                      maxCrossAxisExtent: 200.0,
-                      shrinkWrap: true,
-                      children: <Widget>[
-                        appCard(obj[0][0], () {
-                          openWebView(obj[0][1]);
-                        }),
-                        appCard(obj[1][0], () {
-                          openWebView(obj[1][1]);
-                        }),
-                        appCard(obj[2][0], () {
-                          openWebView(obj[2][1]);
-                        }),
-                        appCard(obj[3][0], () {
-                          openWebView(obj[3][1]);
-                        }),
-                        appCard(obj[4][0], () {
-                          openWebView(obj[4][1]);
-                        }),
-                        appCard(obj[5][0], () {
-                          openWebView(obj[5][1]);
-                        }),
-                        appCard(obj[6][0], () {
-                          openWebView(obj[6][1]);
-                        }),
-                        appCard(obj[7][0], () {
-                          openWebView(obj[7][1]);
-                        }),
-                        appCard(obj[8][0], () {
-                          openWebView(obj[8][1]);
-                        }),
-                        appCard(obj[9][0], () {
-                          openWebView(obj[9][1]);
-                        }),
-                      ],
-                    ),
+                  child: GridView.extent(
+                    primary: false,
+                    padding: const EdgeInsets.only(
+                        top: 20, bottom: 20, right: 6, left: 6),
+                    crossAxisSpacing: 20,
+                    mainAxisSpacing: 20,
+                    childAspectRatio: (140 / 200),
+                    maxCrossAxisExtent: 200.0,
+                    shrinkWrap: true,
+                    children: <Widget>[
+                      appCard(obj[0][0], () {
+                        openWebView(obj[0][1]);
+                      }),
+                      appCard(obj[1][0], () {
+                        openWebView(obj[1][1]);
+                      }),
+                      appCard(obj[2][0], () {
+                        openWebView(obj[2][1]);
+                      }),
+                      appCard(obj[3][0], () {
+                        openWebView(obj[3][1]);
+                      }),
+                      appCard(obj[4][0], () {
+                        openWebView(obj[4][1]);
+                      }),
+                      appCard(obj[5][0], () {
+                        openWebView(obj[5][1]);
+                      }),
+                      appCard(obj[6][0], () {
+                        openWebView(obj[6][1]);
+                      }),
+                      appCard(obj[7][0], () {
+                        openWebView(obj[7][1]);
+                      }),
+                      appCard(obj[8][0], () {
+                        openWebView(obj[8][1]);
+                      }),
+                      appCard(obj[9][0], () {
+                        openWebView(obj[9][1]);
+                      }),
+                    ],
                   )),
-              Text(
-                "FEATURED",
-                style: GoogleFonts.openSans(
-                    fontSize: 15,
-                    color: Colors.grey.shade600,
-                    letterSpacing: 3),
-                textAlign: TextAlign.left,
+              Container(
+                padding: EdgeInsets.all(10),
+                color: Colors.white,
+                child: Text(
+                  "FEATURED",
+                  style: GoogleFonts.openSans(
+                      fontSize: 15,
+                      color: Colors.grey.shade600,
+                      letterSpacing: 3),
+                  textAlign: TextAlign.left,
+                ),
               ),
               Container(
                 margin: EdgeInsets.only(left: 14, right: 14),
-                child: Expanded(
-                    child: GetStreamData(type, swtichCategory: switchCategory)),
+                child: GetStreamData(type, swtichCategory: switchCategory),
               ),
             ],
           ),
@@ -293,6 +592,7 @@ class MyAppState extends State<MyApp> {
   }
 
   Future<void> openWebView(url) async {
+    //notify();
     try {
       final result = await InternetAddress.lookup('www.google.com');
       if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
@@ -544,7 +844,7 @@ class MyAppState extends State<MyApp> {
         break;
       case "Feature Yourself":
         {
-          featureImage();
+          //someColumn.children.addAll();
           setState(() {
             socialMedia = false;
             newsGaming = false;
@@ -570,6 +870,20 @@ class MyAppState extends State<MyApp> {
     } else {
       throw "Could not launch $url";
     }
+  }
+
+  Widget checkUrl(String url) {
+    try {
+      return Image.network(url);
+    } catch (e) {
+      return Icon(Icons.image);
+    }
+  }
+
+  String price(int pricing) {
+    return isDiscount
+        ? (pricing - pricing * discount / 100).round().toString()
+        : pricing.toString();
   }
 
   Widget build(BuildContext context) {
@@ -687,6 +1001,7 @@ class MyAppState extends State<MyApp> {
         Divider(),
         ListTile(
           leading: Icon(IcoFontIcons.starShape, color: Colors.orange),
+          subtitle: isDiscount ? Text("$discount% Discount") : null,
           title: Text(
             "Feature yourself",
             style: TextStyle(color: Colors.orange),
@@ -723,52 +1038,49 @@ class MyAppState extends State<MyApp> {
         iconTheme: IconThemeData(color: Colors.white),
         title: Text(text, style: TextStyle(color: Colors.white)),
         actions: <Widget>[
-          Positioned(
-            top: 20,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IgnorePointer(
-                    ignoring: !refresh,
-                    child: AnimatedOpacity(
-                      duration: Duration(milliseconds: duration),
-                      opacity: refresh ? 1.0 : 0.0,
-                      child: IconButton(
-                        icon: Icon(Icons.refresh),
-                        iconSize: 30,
-                        onPressed: () {
-                          webctrl.reload();
-                          setState(() {
-                            reload = true;
-                          });
-                        },
-                      ),
-                    )),
-                IgnorePointer(
-                  ignoring: !_closeVisible,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IgnorePointer(
+                  ignoring: !refresh,
                   child: AnimatedOpacity(
-                    opacity: _closeVisible ? 1 : 0,
                     duration: Duration(milliseconds: duration),
+                    opacity: refresh ? 1.0 : 0.0,
                     child: IconButton(
+                      icon: Icon(Icons.refresh),
                       iconSize: 30,
-                      icon: Icon(Icons.close),
                       onPressed: () {
-                        webctrl.loadUrl(
-                            "https://idkzmaw2wapnazirmsf5ma-on.drv.tw/idle.html");
-                        openedByClosed = true;
+                        webctrl.reload();
                         setState(() {
-                          _loading = false;
-                          _webvisible = false;
-                          _closeVisible = false;
-                          refresh = false;
+                          reload = true;
                         });
                       },
                     ),
+                  )),
+              IgnorePointer(
+                ignoring: !_closeVisible,
+                child: AnimatedOpacity(
+                  opacity: _closeVisible ? 1 : 0,
+                  duration: Duration(milliseconds: duration),
+                  child: IconButton(
+                    iconSize: 30,
+                    icon: Icon(Icons.close),
+                    onPressed: () {
+                      webctrl.loadUrl(
+                          "https://idkzmaw2wapnazirmsf5ma-on.drv.tw/idle.html");
+                      openedByClosed = true;
+                      setState(() {
+                        _loading = false;
+                        _webvisible = false;
+                        _closeVisible = false;
+                        refresh = false;
+                      });
+                    },
                   ),
                 ),
-                SizedBox(width: 10),
-              ],
-            ),
+              ),
+              SizedBox(width: 10),
+            ],
           ),
         ],
       ),
@@ -807,40 +1119,43 @@ class MyAppState extends State<MyApp> {
                     socialMedia,
                     [
                       [
-                        "assets/SocialMedia/facebook.jpeg",
+                        "https://dl.dropboxusercontent.com/s/awas0gqbnnfc1fc/facebook.jpeg ",
                         "https://www.facebook.com"
                       ],
                       [
-                        "assets/SocialMedia/instagram.jpeg",
+                        "https://dl.dropboxusercontent.com/s/j2tbs5itra91e4z/instagram.jpeg ",
                         "https://www.instagram.com"
                       ],
-                      ["assets/SocialMedia/koo.jpeg", "https://www.kooapp.com"],
                       [
-                        "assets/SocialMedia/twitter.jpeg",
+                        "https://dl.dropboxusercontent.com/s/w9om48cgsv5n4vt/koo.jpeg ",
+                        "https://www.kooapp.com"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/bqonjhcsd3sej8n/twitter.jpeg ",
                         "https://twitter.com"
                       ],
                       [
-                        "assets/SocialMedia/youtube.jpeg",
+                        "https://dl.dropboxusercontent.com/s/ikrwwklw3qlnvdj/youtube.jpeg ",
                         "https://www.youtube.com"
                       ],
                       [
-                        "assets/SocialMedia/sharechat.jpeg",
+                        "https://dl.dropboxusercontent.com/s/e69kknwidlrx4og/sharechat.jpeg ",
                         "https://sharechat.com"
                       ],
                       [
-                        "assets/SocialMedia/reddit.jpeg",
+                        "https://dl.dropboxusercontent.com/s/s3qhdj9yond94o8/reddit.jpeg ",
                         "https://www.reddit.com/"
                       ],
                       [
-                        "assets/SocialMedia/linkedin.jpeg",
+                        "https://dl.dropboxusercontent.com/s/atucztcdghgnk8a/linkedin.jpeg ",
                         "https://www.linkedin.com"
                       ],
                       [
-                        "assets/SocialMedia/tumblr.jpeg",
+                        "https://dl.dropboxusercontent.com/s/zmwe2uyrawo9q43/tumblr.jpeg ",
                         "https://www.tumblr.com"
                       ],
                       [
-                        "assets/SocialMedia/pintrest.jpeg",
+                        "https://dl.dropboxusercontent.com/s/3chvnf8obg2adoa/pintrest.jpeg ",
                         "https://in.pinterest.com"
                       ],
                     ],
@@ -849,40 +1164,43 @@ class MyAppState extends State<MyApp> {
                     newsGaming,
                     [
                       [
-                        "assets/NewsGaming/thelegions2.jpeg",
+                        "https://dl.dropboxusercontent.com/s/mdauimijr2p0np1/thelegions2.jpeg ",
                         "https://thelegionsgames.blogspot.com/search/label/games"
                       ],
                       [
-                        "assets/NewsGaming/ps.jpeg",
+                        "https://dl.dropboxusercontent.com/s/5aeyk69wx1r8d7k/ps.jpeg ",
                         "https://blog.playstation.com/"
                       ],
                       [
-                        "assets/NewsGaming/xbox.jpeg",
+                        "https://dl.dropboxusercontent.com/s/4rewnqn56lpphie/xbox.jpeg ",
                         "https://news.xbox.com/en-us/"
                       ],
-                      ["assets/NewsGaming/ign.jpeg", "https://in.ign.com/"],
                       [
-                        "assets/NewsGaming/gi.jpeg",
+                        "https://dl.dropboxusercontent.com/s/ir6fw0ddqf93wce/ign.jpeg ",
+                        "https://in.ign.com/"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/caw5qf70m8uizoj/gi.jpeg ",
                         "https://www.gameinformer.com/"
                       ],
                       [
-                        "assets/NewsGaming/dualshockers.jpeg",
+                        "https://dl.dropboxusercontent.com/s/xw3aelhkzcaaol7/dualshockers.jpeg ",
                         "https://www.dualshockers.com/"
                       ],
                       [
-                        "assets/NewsGaming/gamerheadlines.jpeg",
+                        "https://dl.dropboxusercontent.com/s/x2i1tcr7nb818dm/gamerheadlines.jpeg ",
                         "https://gamerheadlines.com"
                       ],
                       [
-                        "assets/NewsGaming/ni.jpeg",
+                        "https://dl.dropboxusercontent.com/s/m5fdwnwg3drqpjn/ni.jpeg ",
                         "https://www.nintendolife.com/news"
                       ],
                       [
-                        "assets/NewsGaming/gamespot.jpeg",
+                        "https://dl.dropboxusercontent.com/s/k3zaj60l30akxv4/gamespot.jpeg ",
                         "https://www.gamespot.com/news/"
                       ],
                       [
-                        "assets/NewsGaming/grplus.jpeg",
+                        "https://dl.dropboxusercontent.com/s/u62ckz6h5l911ti/grplus.jpeg ",
                         "https://www.gamesradar.com/uk/"
                       ],
                     ],
@@ -891,40 +1209,43 @@ class MyAppState extends State<MyApp> {
                     newsTech,
                     [
                       [
-                        "assets/NewsTech/amarujala.jpeg",
+                        "https://dl.dropboxusercontent.com/s/vc3lhysqd5be1ts/amarujala.jpeg ",
                         "https://www.amarujala.com/technology"
                       ],
                       [
-                        "assets/NewsTech/jagran.jpeg",
+                        "https://dl.dropboxusercontent.com/s/6894fwah7ppstul/jagran.jpeg ",
                         "https://www.jagran.com/technology-hindi.html"
                       ],
                       [
-                        "assets/NewsTech/theverge.jpeg",
+                        "https://dl.dropboxusercontent.com/s/761coda4l7abniu/theverge.jpeg?dl=0",
                         "https://www.theverge.com/tech"
                       ],
-                      ["assets/NewsTech/bgr.jpeg", "https://bgr.com/tech/"],
                       [
-                        "assets/NewsTech/gadgetsnow.jpeg",
+                        "https://dl.dropboxusercontent.com/s/sgb1rg0ch9i54te/bgr.jpeg?dl=0",
+                        "https://bgr.com/tech/"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/h9gx3yd4yie7882/gadgetsnow.jpeg?dl=0",
                         "https://www.gadgetsnow.com/tech-news"
                       ],
                       [
-                        "assets/NewsTech/cnet.jpeg",
+                        "https://dl.dropboxusercontent.com/s/hkmcshras85edlf/cnet.jpeg?dl=0",
                         "https://www.cnet.com/news/"
                       ],
                       [
-                        "assets/NewsTech/axios.jpeg",
+                        "https://dl.dropboxusercontent.com/s/515d047pmo7uxuq/axios.jpeg?dl=0",
                         "https://www.axios.com/technology/"
                       ],
                       [
-                        "assets/NewsTech/engadget.jpeg",
+                        "https://dl.dropboxusercontent.com/s/zsyiig41n8sh3mp/engadget.jpeg?dl=0",
                         "https://www.engadget.com"
                       ],
                       [
-                        "assets/NewsTech/gizmodo.jpeg",
+                        "https://dl.dropboxusercontent.com/s/6f5ldtbx8080arl/gizmodo.jpeg?dl=0",
                         "https://gizmodo.com/tech"
                       ],
                       [
-                        "assets/NewsTech/bsn.jpeg",
+                        "https://dl.dropboxusercontent.com/s/dar70rb485qzckv/bsn.jpeg?dl=0",
                         "https://brightsideofnews.com/tech-news/"
                       ],
                     ],
@@ -933,40 +1254,43 @@ class MyAppState extends State<MyApp> {
                     newsFinancial,
                     [
                       [
-                        "assets/NewsFinancial/nse.jpg",
+                        "https://dl.dropboxusercontent.com/s/sp7qayups8z0d60/nse.jpg?dl=0",
                         "https://www.nseindia.com"
                       ],
                       [
-                        "assets/NewsFinancial/bse.jpg",
+                        "https://dl.dropboxusercontent.com/s/rkmt2r5u31yq8ah/bse.jpg?dl=0",
                         "https://www.bseindia.com"
                       ],
                       [
-                        "assets/NewsFinancial/forbes.jpg",
+                        "https://dl.dropboxusercontent.com/s/awfrsz83aw9ouhw/forbes.jpg?dl=0",
                         "https://www.forbes.com/?sh=3f15efbb2254"
                       ],
                       [
-                        "assets/NewsFinancial/reuters.jpg",
+                        "https://dl.dropboxusercontent.com/s/xd0cjc433d3szhn/reuters.jpg?dl=0",
                         "https://www.reuters.com/markets"
                       ],
-                      ["assets/NewsFinancial/ft.jpg", "https://www.ft.com"],
                       [
-                        "assets/NewsFinancial/moneycontrol.jpg",
+                        "https://dl.dropboxusercontent.com/s/19c243zwxyfj2lr/ft.jpg?dl=0",
+                        "https://www.ft.com"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/t64e31x4sqowv0k/moneycontrol.jpg?dl=0",
                         "https://www.moneycontrol.com"
                       ],
                       [
-                        "assets/NewsFinancial/investing.jpg",
+                        "https://dl.dropboxusercontent.com/s/livjdy0s8eq0fr4/investing.jpg?dl=0",
                         "https://in.investing.com/?ref=www"
                       ],
                       [
-                        "assets/NewsFinancial/screener.jpg",
+                        "https://dl.dropboxusercontent.com/s/iomsyf0b77i4qu0/screener.jpg?dl=0",
                         "https://www.screener.in"
                       ],
                       [
-                        "assets/NewsFinancial/mw.jpg",
+                        "https://dl.dropboxusercontent.com/s/prmipi6wpwgktci/mw.jpg?dl=0",
                         "https://www.marketwatch.com"
                       ],
                       [
-                        "assets/NewsFinancial/etm.jpg",
+                        "https://dl.dropboxusercontent.com/s/2u56ahonoyf7bts/etm.jpg?dl=0",
                         "https://economictimes.indiatimes.com/markets"
                       ],
                     ],
@@ -975,37 +1299,43 @@ class MyAppState extends State<MyApp> {
                     newsSports,
                     [
                       [
-                        "assets/NewsSports/nbcsports.jpeg",
+                        "https://dl.dropboxusercontent.com/s/fmztuhlwql89yov/nbcsports.jpeg?dl=0",
                         "https://www.nbcsports.com"
                       ],
                       [
-                        "assets/NewsSports/cricbuzz.jpeg",
+                        "https://dl.dropboxusercontent.com/s/bl0jjfo9ycay0m7/cricbuzz.jpeg?dl=0",
                         "https://www.cricbuzz.com"
                       ],
                       [
-                        "assets/NewsSports/isn.jpeg",
+                        "https://dl.dropboxusercontent.com/s/gpomdu0qwo84y07/isn.jpeg?dl=0",
                         "http://www.indiansportsnews.com"
                       ],
                       [
-                        "assets/NewsSports/wwe.jpeg",
+                        "https://dl.dropboxusercontent.com/s/lmk5jzqew9zwiql/wwe.jpeg?dl=0",
                         "https://www.wwe.com/shows/wwe-now"
                       ],
-                      ["assets/NewsSports/f1.jpeg", "https://www.formula1.com"],
-                      ["assets/NewsSports/espn.jpeg", "https://www.espn.in"],
                       [
-                        "assets/NewsSports/247sports.jpeg",
+                        "https://dl.dropboxusercontent.com/s/uunslehthgl7lu8/f1.jpeg?dl=0",
+                        "https://www.formula1.com"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/0ev6gxlm9tr4r76/espn.jpeg?dl=0",
+                        "https://www.espn.in"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/7n6i16p2h55jiox/247sports.jpeg?dl=0",
                         "https://247sports.com"
                       ],
                       [
-                        "assets/NewsSports/deadspin.jpeg",
+                        "https://dl.dropboxusercontent.com/s/6a641kx3w3f8x78/deadspin.jpeg?dl=0",
                         "https://deadspin.com"
                       ],
                       [
-                        "assets/NewsSports/bet365.jpeg",
+                        "https://dl.dropboxusercontent.com/s/etbjcj1lpqhy9m6/bet365.jpeg?dl=0",
                         "https://www.bet365.com/#/AS/B3/"
                       ],
                       [
-                        "assets/NewsSports/sk.jpeg",
+                        "https://dl.dropboxusercontent.com/s/s4dagmesscaswo2/sk.jpeg?dl=0",
                         "https://www.sportskeeda.com"
                       ],
                     ],
@@ -1014,43 +1344,43 @@ class MyAppState extends State<MyApp> {
                     newsLocal,
                     [
                       [
-                        "assets/NewsLocal/ddnews.jpeg",
+                        "https://dl.dropboxusercontent.com/s/uy9nefdep3pwg5i/ddnews.jpeg?dl=0",
                         "http://ddnews.gov.in/national"
                       ],
                       [
-                        "assets/NewsLocal/ani.jpeg",
+                        "https://dl.dropboxusercontent.com/s/1b2174jtqtqcoq0/ani.jpeg?dl=0",
                         "https://aninews.in/category/national/general-news/"
                       ],
                       [
-                        "assets/NewsLocal/ians.jpeg",
+                        "https://dl.dropboxusercontent.com/s/siqevs51fpsudv6/ians.jpeg?dl=0",
                         "https://ians.in/index.php?param=category/139/139"
                       ],
                       [
-                        "assets/NewsLocal/amarujala.jpeg",
+                        "https://dl.dropboxusercontent.com/s/5uq2aagdtz2eyxf/amarujala.jpeg?dl=0",
                         "https://www.amarujala.com/india-news?src=mainmenu"
                       ],
                       [
-                        "assets/NewsLocal/jagran.jpeg",
+                        "https://dl.dropboxusercontent.com/s/m9pvo7i02814qnx/jagran.jpeg?dl=0",
                         "https://www.jagran.com/news/national-news-hindi.html"
                       ],
                       [
-                        "assets/NewsLocal/zeenews.jpeg",
+                        "https://dl.dropboxusercontent.com/s/0wuhmxht0zlzc4l/zeenews.jpeg?dl=0",
                         "https://zeenews.india.com/india"
                       ],
                       [
-                        "assets/NewsLocal/hindustantimes.jpeg",
+                        "https://dl.dropboxusercontent.com/s/6s6xt7cwp820orn/hindustantimes.jpeg?dl=0",
                         "https://www.hindustantimes.com/india-news"
                       ],
                       [
-                        "assets/NewsLocal/dainikbhaskar.jpeg",
+                        "https://dl.dropboxusercontent.com/s/wwug7o3aisyjiq5/dainikbhaskar.jpeg?dl=0",
                         "https://www.bhaskar.com/national/"
                       ],
                       [
-                        "assets/NewsLocal/patrika.jpeg",
+                        "https://dl.dropboxusercontent.com/s/evb91qzkk0053u4/patrika.jpeg?dl=0",
                         "https://www.patrika.com/india-news/"
                       ],
                       [
-                        "assets/NewsLocal/india.jpeg",
+                        "https://dl.dropboxusercontent.com/s/kn4lcutz712587p/india.jpeg?dl=0",
                         "https://www.india.com/news/india/"
                       ],
                     ],
@@ -1059,40 +1389,43 @@ class MyAppState extends State<MyApp> {
                     newsGlobal,
                     [
                       [
-                        "assets/NewsGlobal/nyt.jpeg",
+                        "https://dl.dropboxusercontent.com/s/gmdwz319xocnbh1/nyt.jpeg?dl=0",
                         "https://www.nytimes.com/international/section/world"
                       ],
-                      ["assets/NewsGlobal/cnn.jpeg", "https://edition.cnn.com"],
                       [
-                        "assets/NewsGlobal/reuters.jpeg",
+                        "https://dl.dropboxusercontent.com/s/00gy2h9dx5nytfe/cnn.jpeg?dl=0",
+                        "https://edition.cnn.com"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/oxsrmhl0wrbayws/reuters.jpeg?dl=0",
                         "https://www.reuters.com/world/"
                       ],
                       [
-                        "assets/NewsGlobal/cnbc.jpeg",
+                        "https://dl.dropboxusercontent.com/s/32jwttyu6jueq7r/cnbc.jpeg?dl=0",
                         "https://www.cnbc.com/world/"
                       ],
                       [
-                        "assets/NewsGlobal/buzzfeed.jpeg",
+                        "https://dl.dropboxusercontent.com/s/kxgaf83f6eobpy4/buzzfeed.jpeg?dl=0",
                         "https://www.buzzfeednews.com/section/world"
                       ],
                       [
-                        "assets/NewsGlobal/defenseblog.jpeg",
+                        "https://dl.dropboxusercontent.com/s/qv67j278sn77bma/defenseblog.jpeg?dl=0",
                         "https://defence-blog.com/"
                       ],
                       [
-                        "assets/NewsGlobal/thecipherbrief.jpeg",
+                        "https://dl.dropboxusercontent.com/s/68uux6gq7vx9opi/thecipherbrief.jpeg?dl=0",
                         "https://www.thecipherbrief.com"
                       ],
                       [
-                        "assets/NewsGlobal/euronews.jpeg",
+                        "https://dl.dropboxusercontent.com/s/5u3bbafhw7ba6ep/euronews.jpeg?dl=0",
                         "https://www.euronews.com/news/international"
                       ],
                       [
-                        "assets/NewsGlobal/dw.jpeg",
+                        "https://dl.dropboxusercontent.com/s/8qnsvq8tw28zk47/dw.jpeg?dl=0",
                         "https://www.dw.com/en/top-stories/s-9097"
                       ],
                       [
-                        "assets/NewsGlobal/south.jpeg",
+                        "https://dl.dropboxusercontent.com/s/5psdt4fqkllayrr/south.jpeg?dl=0",
                         "https://www.smh.com.au/world"
                       ],
                     ],
@@ -1101,30 +1434,45 @@ class MyAppState extends State<MyApp> {
                     music,
                     [
                       [
-                        "assets/Music/spotify.jpeg",
+                        "https://dl.dropboxusercontent.com/s/fad3xpeirog00d3/spotify.jpeg?dl=0",
                         "https://open.spotify.com/"
                       ],
                       [
-                        "assets/Music/applemusic.jpeg",
+                        "https://dl.dropboxusercontent.com/s/q12tcxfgaj6ulbp/applemusic.jpeg?dl=0",
                         "https://music.apple.com/us/browse"
                       ],
                       [
-                        "assets/Music/soundcloud.jpeg",
+                        "https://dl.dropboxusercontent.com/s/grdm14szqdgnvxu/soundcloud.jpeg?dl=0",
                         "https://soundcloud.com/discover"
                       ],
                       [
-                        "assets/Music/jiosaavn.jpeg",
+                        "https://dl.dropboxusercontent.com/s/8mjq2ofadegz6i7/jiosaavn.jpeg?dl=0",
                         "https://www.jiosaavn.com/"
                       ],
                       [
-                        "assets/Music/youtubemusic.jpeg",
+                        "https://dl.dropboxusercontent.com/s/0rbbz25eboppthr/youtubemusic.jpeg?dl=0",
                         "https://music.youtube.com/"
                       ],
-                      ["assets/Music/hungama.jpeg", "https://www.hungama.com/"],
-                      ["assets/Music/wynk.jpeg", "https://wynk.in/music"],
-                      ["assets/Music/audiomack.jpeg", "https://audiomack.com/"],
-                      ["assets/Music/gaana.jpeg", "https://gaana.com/"],
-                      ["assets/Music/stream.jpeg", "https://streamplayer.io/"],
+                      [
+                        "https://dl.dropboxusercontent.com/s/couz0s88rjph2p0/hungama.jpeg?dl=0",
+                        "https://www.hungama.com/"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/wuskc29hpyxkt8b/wynk.jpeg?dl=0",
+                        "https://wynk.in/music"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/ue9xrdxu4i4urpv/audiomack.jpeg?dl=0",
+                        "https://audiomack.com/"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/jiz9z4jcgm36b7i/gaana.jpeg?dl=0",
+                        "https://gaana.com/"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/f2mm8vwvjgks6kj/stream.jpeg?dl=0",
+                        "https://streamplayer.io/"
+                      ],
                     ],
                     "MusicFeatured",
                     size: 2),
@@ -1132,37 +1480,49 @@ class MyAppState extends State<MyApp> {
                     games,
                     [
                       [
-                        "assets/Games/callofwar.jpeg",
+                        "https://dl.dropboxusercontent.com/s/9vi86pu6syp6cs6/callofwar.jpeg?dl=0",
                         "https://www.callofwar.com/"
                       ],
                       [
-                        "assets/Games/minigiants.jpeg",
+                        "https://dl.dropboxusercontent.com/s/ds1pod4dpgigivc/minigiants.jpeg?dl=0",
                         "https://minigiants.io/?v=1.6.53&play-game"
                       ],
-                      ["assets/Games/gartic.jpeg", "https://gartic.io"],
                       [
-                        "assets/Games/catanuniverse.jpeg",
+                        "https://dl.dropboxusercontent.com/s/0wva01dhyh9vup8/gartic.jpeg?dl=0",
+                        "https://gartic.io"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/58tv29zsg1jyep1/catanuniverse.jpeg?dl=0",
                         "https://catanuniverse.com/en/game/"
                       ],
                       [
-                        "assets/Games/starblast.jpeg",
+                        "https://dl.dropboxusercontent.com/s/8jn0a5ac1nv1wbq/starblast.jpeg?dl=0",
                         "https://starblast.io/#7132"
                       ],
-                      ["assets/Games/krunker.jpeg", "https://krunker.io/"],
                       [
-                        "assets/Games/paper.jpeg",
+                        "https://dl.dropboxusercontent.com/s/jel8jkqd5byn7sw/krunker.jpeg?dl=0",
+                        "https://krunker.io/"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/9khppu2kgfxhaul/paper.jpeg?dl=0",
                         "https://paper-io.com/teams/"
                       ],
-                      ["assets/Games/mope.jpeg", "https://mope.io/"],
                       [
-                        "assets/Games/gobattle.jpeg",
+                        "https://dl.dropboxusercontent.com/s/w2h66bfybob4kfu/mope.jpeg?dl=0",
+                        "https://mope.io/"
+                      ],
+                      [
+                        "https://dl.dropboxusercontent.com/s/g8lt1m68afdofwy/gobattle.jpeg?dl=0 ",
                         "https://www.gobattle.io/ "
                       ],
                       [
-                        "assets/Games/evowars.jpeg",
+                        "https://dl.dropboxusercontent.com/s/qc3rdj9n7y1z37c/evowars.jpeg?dl=0",
                         "https://evowars.io/?v=1.8.1&play-game"
                       ],
-                      ["assets/Games/slitcher.jpeg", "https://slither.io/"],
+                      [
+                        "https://dl.dropboxusercontent.com/s/cfc74e1t1ilim0f/slitcher.jpeg?dl=0",
+                        "https://slither.io/"
+                      ],
                     ],
                     "GamesFeatured",
                     size: 2),
@@ -1172,10 +1532,12 @@ class MyAppState extends State<MyApp> {
                       duration: Duration(milliseconds: duration),
                       opacity: featUrself ? 1.0 : 0.0,
                       child: SingleChildScrollView(
+                        physics: ScrollPhysics(),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            featureImage(),
+                            //featureImage(),
+                            Image(image: NetworkImage(imageSrc)),
                             Padding(
                                 padding: const EdgeInsets.all(10.0),
                                 child: RichText(
@@ -1189,11 +1551,10 @@ class MyAppState extends State<MyApp> {
                                         ),
                                         children: [
                                           TextSpan(
-                                              text: "50rs",
+                                              text: pricing.toString() + "rs",
                                               style: TextStyle(
                                                   color: Colors.blueAccent,
-                                                  fontWeight:
-                                                      FontWeight.bold)),
+                                                  fontWeight: FontWeight.bold)),
                                           TextSpan(
                                             text: ") for ",
                                           ),
@@ -1201,8 +1562,7 @@ class MyAppState extends State<MyApp> {
                                               text: "life time",
                                               style: TextStyle(
                                                   color: Colors.blueAccent,
-                                                  fontWeight:
-                                                      FontWeight.bold)),
+                                                  fontWeight: FontWeight.bold)),
                                           TextSpan(
                                             text:
                                                 " featuring. Just fill in some details, pay and be featured!  ",
@@ -1226,16 +1586,21 @@ class MyAppState extends State<MyApp> {
                                         Align(
                                           alignment: Alignment.centerLeft,
                                           child: ButtonTheme(
-                                            padding:
-                                                EdgeInsets.only(left: 20),
+                                            padding: EdgeInsets.only(left: 20),
                                             child: DropdownButtonFormField(
                                               isExpanded: true,
                                               decoration: InputDecoration(
+                                                  contentPadding:
+                                                      EdgeInsets.only(
+                                                          left: 17,
+                                                          top: 16,
+                                                          bottom: 16,
+                                                          right: 10),
                                                   labelText: "Post Type",
                                                   border: OutlineInputBorder(
                                                       borderRadius:
-                                                          BorderRadius
-                                                              .circular(10))),
+                                                          BorderRadius.circular(
+                                                              10))),
                                               icon: Icon(Icons
                                                   .arrow_drop_down_rounded),
                                               alignment: Alignment.topLeft,
@@ -1253,8 +1618,7 @@ class MyAppState extends State<MyApp> {
                                                 'Computer Software',
                                               ].map<DropdownMenuItem<String>>(
                                                   (String value) {
-                                                return DropdownMenuItem<
-                                                    String>(
+                                                return DropdownMenuItem<String>(
                                                   value: value,
                                                   child: Text(
                                                     value,
@@ -1287,10 +1651,11 @@ class MyAppState extends State<MyApp> {
                                         TextFormField(
                                           controller: featuredPostLink,
                                           decoration: InputDecoration(
+                                              contentPadding:
+                                                  EdgeInsets.only(left: 17),
                                               border: OutlineInputBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(
-                                                          4)),
+                                                      BorderRadius.circular(8)),
                                               labelText: linkType),
                                         ),
                                       ],
@@ -1306,69 +1671,580 @@ class MyAppState extends State<MyApp> {
                                       children: <Widget>[
                                         RichText(
                                             text: TextSpan(
-                                                text:
-                                                    "Abhishek Sharma will create an attractive image for your post (",
+                                                text: "Abhishek Sharma ",
                                                 style: GoogleFonts.openSans(
-                                                    color: Colors.grey),
+                                                    color: Colors.grey[700],
+                                                    fontWeight:
+                                                        FontWeight.bold),
                                                 children: [
+                                              TextSpan(
+                                                  text:
+                                                      "will create an attractive image for your post (",
+                                                  style: GoogleFonts.openSans(
+                                                    color: Colors.grey,
+                                                  )),
                                               TextSpan(
                                                   text: "for free",
                                                   style: GoogleFonts.openSans(
-                                                      color:
-                                                          Colors.blueAccent,
+                                                      color: Colors.blueAccent,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                              TextSpan(
+                                                  text: ") but you can ",
+                                                  style: GoogleFonts.openSans(
+                                                      color: Colors.grey)),
+                                              TextSpan(
+                                                  text: "optionally ",
+                                                  style: GoogleFonts.openSans(
+                                                      color: Colors.grey[600],
                                                       fontWeight:
                                                           FontWeight.bold)),
                                               TextSpan(
                                                   text:
-                                                      ") but you can also upload your desired image of resolution 700 x 1000. ",
+                                                      "upload your desired image of resolution 700 x 1000. ",
                                                   style: GoogleFonts.openSans(
-                                                      color: Colors.grey)),
+                                                    color: Colors.grey,
+                                                  )),
                                             ])),
-                                        IgnorePointer(
-                                          ignoring: !showImage,
-                                          child: AnimatedOpacity(
-                                            opacity: showImage ? 1.0 : 0.0,
-                                            duration:
-                                                Duration(seconds: duration),
-                                            child: Container(
-                                                decoration: BoxDecoration(
-                                                    border: Border.all(
-                                                        color: Colors.white,
-                                                        width: 2),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            24)),
-                                                height: 200,
-                                                width: 140,
-                                                child: showImage
-                                                    ? Image.file(
-                                                        File(image.path),
-                                                      )
-                                                    : Container(
-                                                        height: 0,
-                                                      )),
-                                          ),
+                                        SizedBox(
+                                          height: 10,
                                         ),
-                                        GestureDetector(
-                                          onTap: () async {
-                                            image = await ImagePicker()
-                                                .pickImage(
-                                                    source:
-                                                        ImageSource.gallery,
-                                                    imageQuality: 50);
-                                            setState(() {
-                                              uploadButton =
-                                                  File(image.path).toString();
-                                              showImage = true;
-                                            });
-                                          },
-                                          child: Container(
-                                            child: Text(uploadButton),
-                                          ),
+                                        showImage
+                                            ? IgnorePointer(
+                                                ignoring: !showImage,
+                                                child: AnimatedOpacity(
+                                                  opacity:
+                                                      showImage ? 1.0 : 0.0,
+                                                  duration: Duration(
+                                                      milliseconds: duration),
+                                                  child: Container(
+                                                      child: showImage
+                                                          ? ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          10),
+                                                              child: Image.file(
+                                                                File(
+                                                                    image.path),
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                                height: 200,
+                                                                width: 140,
+                                                              ),
+                                                            )
+                                                          : Container(
+                                                              height: 0,
+                                                            )),
+                                                ),
+                                              )
+                                            : Container(height: 0, width: 0),
+                                        SizedBox(
+                                          height: 10,
                                         ),
+                                        showImage
+                                            ? Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: [
+                                                  GestureDetector(
+                                                    onTap: () async {
+                                                      send();
+                                                    },
+                                                    child: Container(
+                                                      width: 100,
+                                                      padding:
+                                                          EdgeInsets.all(10),
+                                                      decoration: BoxDecoration(
+                                                          color:
+                                                              Colors.blueAccent,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      10)),
+                                                      child: Center(
+                                                          child: Text("Upload",
+                                                              style: GoogleFonts
+                                                                  .openSans(
+                                                                      color: Colors
+                                                                          .white))),
+                                                    ),
+                                                  ),
+                                                  GestureDetector(
+                                                    onTap: () async {
+                                                      image = await ImagePicker()
+                                                          .pickImage(
+                                                              source:
+                                                                  ImageSource
+                                                                      .gallery,
+                                                              imageQuality: 50);
+
+                                                      setState(() {
+                                                        uploadButton =
+                                                            File(image.path)
+                                                                .toString();
+                                                        showImage = true;
+                                                      });
+                                                    },
+                                                    child: Container(
+                                                      padding:
+                                                          EdgeInsets.all(8),
+                                                      decoration: BoxDecoration(
+                                                          border: Border.all(
+                                                              color: Colors
+                                                                  .blueAccent,
+                                                              width: 2),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      10)),
+                                                      child: Center(
+                                                          child: Text("Change",
+                                                              style: GoogleFonts.openSans(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: Colors
+                                                                      .blueAccent))),
+                                                    ),
+                                                  ),
+                                                  GestureDetector(
+                                                    onTap: () async {
+                                                      setState(() {
+                                                        showImage = false;
+                                                      });
+                                                    },
+                                                    child: Container(
+                                                      padding:
+                                                          EdgeInsets.all(8),
+                                                      decoration: BoxDecoration(
+                                                          border: Border.all(
+                                                              color: Colors
+                                                                  .blueAccent,
+                                                              width: 2),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      10)),
+                                                      child: Center(
+                                                          child: Text("Remove",
+                                                              style: GoogleFonts.openSans(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: Colors
+                                                                      .blueAccent))),
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : GestureDetector(
+                                                onTap: () async {
+                                                  image = await ImagePicker()
+                                                      .pickImage(
+                                                          source: ImageSource
+                                                              .gallery,
+                                                          imageQuality: 50);
+
+                                                  setState(() {
+                                                    uploadButton =
+                                                        File(image.path)
+                                                            .toString();
+                                                    showImage = true;
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: EdgeInsets.all(10),
+                                                  decoration: BoxDecoration(
+                                                      color: Colors.blueAccent,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10)),
+                                                  child: Center(
+                                                      child: Text("Select",
+                                                          style: GoogleFonts
+                                                              .openSans(
+                                                                  color: Colors
+                                                                      .white))),
+                                                ),
+                                              ),
                                       ],
                                     ),
-                                  )
+                                  ),
+                                  Step(
+                                      title: Text("Payment"),
+                                      isActive: _currentStep >= 0,
+                                      state: _currentStep >= 2
+                                          ? StepState.complete
+                                          : StepState.disabled,
+                                      content: Column(children: [
+                                        isDiscount
+                                            ? Container(
+                                                width: 270,
+                                                height: 37,
+                                                padding:
+                                                    EdgeInsets.only(left: 10),
+                                                child: Align(
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: Text(
+                                                      discount.toString() +
+                                                          "% Discount applies here.",
+                                                      style:
+                                                          GoogleFonts.openSans(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color: Color
+                                                                  .fromRGBO(
+                                                                      0,
+                                                                      187,
+                                                                      97,
+                                                                      100))),
+                                                ),
+                                                decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                    border: Border.all(
+                                                        width: 2,
+                                                        color: Color.fromARGB(
+                                                            100, 0, 255, 133)),
+                                                    color: Color.fromARGB(
+                                                        29, 0, 255, 133)))
+                                            : Container(
+                                                height: 0,
+                                                width: 0,
+                                              ),
+                                        SizedBox(
+                                          height: isDiscount ? 10 : 0,
+                                        ),
+                                        Text(
+                                            "You can easily pay with any method. Here are some details about payment:",
+                                            style: GoogleFonts.openSans(
+                                                color: Color.fromRGBO(
+                                                    67, 67, 67, 100))),
+                                        SizedBox(
+                                          height: 20,
+                                        ),
+                                        Transform.scale(
+                                          scale: 0.98,
+                                          child: TextField(
+                                            controller: custName,
+                                            decoration: InputDecoration(
+                                                contentPadding:
+                                                    EdgeInsets.only(left: 15),
+                                                border: OutlineInputBorder(),
+                                                labelText: "Your name"),
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          height: 10,
+                                        ),
+                                        RichText(
+                                          text: TextSpan(
+                                              text: "Amount in (₹) ",
+                                              style: GoogleFonts.openSans(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.grey[600]),
+                                              children: [
+                                                TextSpan(
+                                                    text: "calculated ",
+                                                    style: GoogleFonts.openSans(
+                                                        color: Colors.grey[500],
+                                                        fontWeight:
+                                                            FontWeight.normal)),
+                                                TextSpan(
+                                                    text: isDiscount
+                                                        ? "calculated after discount is "
+                                                        : "is ",
+                                                    style: GoogleFonts.openSans(
+                                                        color: Colors.grey[500],
+                                                        fontWeight:
+                                                            FontWeight.normal)),
+                                                TextSpan(
+                                                    text: price(pricing) + "rs",
+                                                    style: GoogleFonts.openSans(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color:
+                                                            Colors.grey[600])),
+                                                TextSpan(
+                                                    text: ".",
+                                                    style: GoogleFonts.openSans(
+                                                        color: Colors.grey[500],
+                                                        fontWeight:
+                                                            FontWeight.normal)),
+                                              ]),
+                                        ),
+                                        SizedBox(
+                                          height: 15,
+                                        ),
+                                        Text("Pay via",
+                                            style: GoogleFonts.openSans(
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.bold)),
+                                        SizedBox(
+                                          height: 20,
+                                        ),
+                                        Column(
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceAround,
+                                              children: [
+                                                myPayApp(bhim, 30,
+                                                    "assets/images/apps/bhim.png"),
+                                                myPayApp(gpay, 35,
+                                                    "assets/images/apps/gpay.png"),
+                                                myPayApp(paytm, 20,
+                                                    "assets/images/apps/paytm.png"),
+                                              ],
+                                            ),
+                                            Divider(
+                                              height: 40,
+                                              color: Colors.grey[400],
+                                            ),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceAround,
+                                              children: [
+                                                myPayApp(amazonPay, 38,
+                                                    "assets/images/apps/amazonpay.png"),
+                                                myPayApp(phonepe, 42,
+                                                    "assets/images/apps/phonepay.png"),
+                                                myPayApp(sbiPay, 40,
+                                                    "assets/images/apps/sbi.png"),
+                                              ],
+                                            ),
+                                            Divider(
+                                              height: 40,
+                                              color: Colors.grey[400],
+                                            ),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceAround,
+                                              children: [
+                                                myPayApp(miPayGlobal, 50,
+                                                    "assets/images/apps/mipay.png"),
+                                                myPayApp(mobikwik, 40,
+                                                    "assets/images/apps/mobikwik.png"),
+                                                myPayApp(freecharge, 42,
+                                                    "assets/images/apps/freecharge.png"),
+                                              ],
+                                            ),
+                                            SizedBox(
+                                              height: 15,
+                                            )
+                                          ],
+                                        ),
+                                        Divider(),
+                                        RichText(
+                                            text: TextSpan(
+                                                text: "Take Screenshot ",
+                                                style: GoogleFonts.openSans(
+                                                    color: Colors.grey[600],
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                                children: [
+                                              TextSpan(
+                                                  text: "of ",
+                                                  style: GoogleFonts.openSans(
+                                                      fontWeight:
+                                                          FontWeight.normal)),
+                                              TextSpan(
+                                                  text: "Transaction Reciept "),
+                                              TextSpan(
+                                                  text: "and ",
+                                                  style: GoogleFonts.openSans(
+                                                      fontWeight:
+                                                          FontWeight.normal)),
+                                              TextSpan(text: "Upload "),
+                                              TextSpan(
+                                                  text: "here:",
+                                                  style: GoogleFonts.openSans(
+                                                      fontWeight:
+                                                          FontWeight.normal)),
+                                            ])),
+                                        SizedBox(height: 10),
+                                        showTransImage
+                                            ? IgnorePointer(
+                                                ignoring: !showTransImage,
+                                                child: AnimatedOpacity(
+                                                  opacity: showTransImage
+                                                      ? 1.0
+                                                      : 0.0,
+                                                  duration: Duration(
+                                                      milliseconds: duration),
+                                                  child: Container(
+                                                      child: showTransImage
+                                                          ? ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          10),
+                                                              child: Image.file(
+                                                                File(trnsImage
+                                                                    .path),
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                              ),
+                                                            )
+                                                          : Container(
+                                                              height: 0,
+                                                            )),
+                                                ),
+                                              )
+                                            : Container(height: 0, width: 0),
+                                        SizedBox(height: 14),
+                                        showTransImage
+                                            ? Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: [
+                                                  GestureDetector(
+                                                    onTap: () async {
+                                                      if (custName
+                                                          .text.isEmpty) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                                SnackBar(
+                                                          backgroundColor: Colors
+                                                                  .yellowAccent[
+                                                              700],
+                                                          content:
+                                                              Row(children: <
+                                                                  Widget>[
+                                                            //Icon widget of your choice HERE,
+                                                            Text(
+                                                              "Fill in Your Name",
+                                                              style: TextStyle(
+                                                                  fontSize: 17,
+                                                                  color: Colors
+                                                                      .black),
+                                                            ),
+                                                            SizedBox(
+                                                              width: 10,
+                                                            ),
+                                                            Icon(
+                                                              Icons.warning,
+                                                              color:
+                                                                  Colors.black,
+                                                            )
+                                                          ]),
+                                                        ));
+                                                      } else {
+                                                        sendTrns();
+                                                        CollectionReference
+                                                            data =
+                                                            FirebaseFirestore
+                                                                .instance
+                                                                .collection(
+                                                                    "Feature Requests");
+                                                        data.add({
+                                                          "name": custName.text,
+                                                          "link":
+                                                              featuredPostLink
+                                                                  .text,
+                                                          "post_type":
+                                                              postTypeSelected
+                                                        });
+                                                        imagePostedFeatured =
+                                                            true;
+                                                      }
+                                                    },
+                                                    child: Container(
+                                                      width: 100,
+                                                      padding:
+                                                          EdgeInsets.all(10),
+                                                      decoration: BoxDecoration(
+                                                          color:
+                                                              Colors.blueAccent,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      10)),
+                                                      child: Center(
+                                                          child: Text("Upload",
+                                                              style: GoogleFonts
+                                                                  .openSans(
+                                                                      color: Colors
+                                                                          .white))),
+                                                    ),
+                                                  ),
+                                                  GestureDetector(
+                                                    onTap: () async {
+                                                      trnsImage =
+                                                          await ImagePicker()
+                                                              .pickImage(
+                                                                  source:
+                                                                      ImageSource
+                                                                          .gallery,
+                                                                  imageQuality:
+                                                                      50);
+
+                                                      setState(() {
+                                                        showTransImage = true;
+                                                      });
+                                                    },
+                                                    child: Container(
+                                                      width: 100,
+                                                      padding:
+                                                          EdgeInsets.all(8),
+                                                      decoration: BoxDecoration(
+                                                          border: Border.all(
+                                                              color: Colors
+                                                                  .blueAccent,
+                                                              width: 2),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      10)),
+                                                      child: Center(
+                                                          child: Text("Change",
+                                                              style: GoogleFonts.openSans(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: Colors
+                                                                      .blueAccent))),
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : GestureDetector(
+                                                onTap: () async {
+                                                  trnsImage =
+                                                      await ImagePicker()
+                                                          .pickImage(
+                                                              source:
+                                                                  ImageSource
+                                                                      .gallery,
+                                                              imageQuality: 50);
+
+                                                  setState(() {
+                                                    showTransImage = true;
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding: EdgeInsets.all(10),
+                                                  decoration: BoxDecoration(
+                                                      color: Colors.blueAccent,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10)),
+                                                  child: Center(
+                                                      child: Text("Select",
+                                                          style: GoogleFonts
+                                                              .openSans(
+                                                                  color: Colors
+                                                                      .white))),
+                                                ),
+                                              ),
+                                      ]))
                                 ])
                           ],
                         ),
@@ -1588,18 +2464,7 @@ class MyAppState extends State<MyApp> {
                                     onPressed: sendButtonDisabled
                                         ? null
                                         : () {
-                                            Uri emailLaunchUri = Uri(
-                                                scheme: 'mailto',
-                                                path: 'geekysharma31@gmail.com',
-                                                queryParameters: {
-                                                  'subject': nameCtrl.text +
-                                                      " gave feedback",
-                                                  'body': feedbackCtrl.text
-                                                      .toString()
-                                                      .replaceAll("+", " ")
-                                                });
-                                            launchURL(
-                                                emailLaunchUri.toString());
+                                            sndFeedback();
                                           },
                                     style: ButtonStyle(
                                         overlayColor:
@@ -1687,6 +2552,18 @@ class MyAppState extends State<MyApp> {
       ),
     );
   }
+
+  GestureDetector myPayApp(UpiApp app, int h, p) {
+    return GestureDetector(
+      onTap: () {
+        initiateTransaction(app);
+      },
+      child: Container(
+        height: h.toDouble(),
+        child: Image.asset(p),
+      ),
+    );
+  }
 }
 
 // ===========================
@@ -1768,12 +2645,21 @@ class _GetStreamDataState extends State<GetStreamData> {
                         )
                       ],
                       image: DecorationImage(
-                          image: new NetworkImage(data['image'])))),
+                        image: new NetworkImage(data['image']),
+                      ))),
             );
           }).toList(),
         );
       },
     );
+  }
+
+  Widget checkUrl(String url) {
+    try {
+      return Image.network(url);
+    } catch (e) {
+      return Icon(Icons.image);
+    }
   }
 }
 

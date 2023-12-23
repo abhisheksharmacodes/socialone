@@ -41,5 +41,8 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-7438888956361165~4725022222"/>
+        <meta-data
+          android:name="com.google.firebase.messaging.default_notification_color"
+          android:resource="@android:color/black" />
     </application>
 </manifest>
